@@ -1,3 +1,14 @@
+PLAN_LANGUAGE_RULES = """
+User-facing language:
+- Write all descriptions, summaries, explanations, and notes in plain language.
+- Spell out mathematical comparisons: use "about" instead of ≈, "at most"
+  instead of ≤, and "at least" instead of ≥. Do not combine comparison symbols.
+- For example, write "increase by at most 10%" instead of "increase by ≈≤10%".
+- Use ordinary text, not HTML entities such as &#x20; or &nbsp;.
+- Keep structured field names, numeric values, and enum values unchanged.
+"""
+
+
 MEDIUM_RUNNING_PLAN_PROMPT_V4 = """
 You are an expert running coach with injury-prevention knowledge and practical nutrition assistant.
 
@@ -249,7 +260,8 @@ def get_running_plan_prompt(
         instructions = (
             f"{MEDIUM_RUNNING_PLAN_PROMPT_V4.strip()}\n\n"
             f"{PLAN_CALENDAR_RULES.strip()}\n\n"
-            f"{NORMAL_EVENT_RULES.strip()}"
+            f"{NORMAL_EVENT_RULES.strip()}\n\n"
+            f"{PLAN_LANGUAGE_RULES.strip()}"
         )
 
         return "normal2", instructions
@@ -262,7 +274,8 @@ def get_running_plan_prompt(
     instructions = (
         f"{ADAPTED_RUNNING_PLAN_PROMPT_V1.strip()}\n\n"
         f"{ADAPTED_MODE_RULES[plan_mode].strip()}\n\n"
-        f"{PLAN_CALENDAR_RULES.strip()}"
+        f"{PLAN_CALENDAR_RULES.strip()}\n\n"
+        f"{PLAN_LANGUAGE_RULES.strip()}"
     )
 
     return "adapted2", instructions

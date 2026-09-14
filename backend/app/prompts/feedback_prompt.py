@@ -1,4 +1,4 @@
-from app.prompts.running_plan_prompt import ADAPTED_MODE_RULES
+from app.prompts.running_plan_prompt import ADAPTED_MODE_RULES, PLAN_LANGUAGE_RULES
 
 REMAINING_PLAN_FEEDBACK_PROMPT = """
 Revise the currently selected running plan using all feedback attached to it.
@@ -96,7 +96,7 @@ def get_feedback_prompt(version: str = "remaining") -> str:
             f"Unknown feedback prompt version: {version}"
         )
 
-    return prompts[version]
+    return f"{prompts[version].strip()}\n\n{PLAN_LANGUAGE_RULES.strip()}"
 
 
 def get_adapted_feedback_prompt(
@@ -113,7 +113,8 @@ def get_adapted_feedback_prompt(
 
     instructions = (
         f"{ADAPTED_REMAINING_PLAN_FEEDBACK_PROMPT_V1.strip()}\n\n"
-        f"{mode_rules.strip()}"
+        f"{mode_rules.strip()}\n\n"
+        f"{PLAN_LANGUAGE_RULES.strip()}"
     )
 
     return "remaining_adapted1", instructions
