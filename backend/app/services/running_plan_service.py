@@ -1,3 +1,6 @@
+from datetime import date
+
+
 def calculate_weekly_distance_totals(
         training_days: list[dict],
 ) -> dict[int, float]:
@@ -132,4 +135,77 @@ def validate_plan_mode(
                     "walk_only cannot contain walk-run sessions."
                 )
 
+    return recommendation
+
+
+def validate_revision_load(
+        recommendation: dict,
+        remaining_plan: dict,
+        survey: dict,
+        plan_mode: str,
+) -> dict:
+    """Check measurable adapted load constraints against the selected schedule.
+
+    Only compare full weeks. Baseline recovery reductions remain permitted;
+    this is a consistency check, not a clinical progression prescription.
+    """
+    days = recommendation["content"]["training_days"]
+    limit = survey.get("max_session_minutes")
+    if limit is not None:
+        for day in days:
+            duration = sum(
+                (day.get(activity) or {}).get("duration_minutes", 0)
+                for activity in ("running", "walking", "strength", "mobility")
+            )
+            if duration > limit:
+                raise ValueError(
+                    f"{day['date']} totals {duration} minutes, exceeding {limit}."
+                )
+
+    if plan_mode != "walk_run":
+        return recommendation
+
+    def weekly_load(training_days):
+        result = {}
+        for day in training_days:
+            count, distance = result.get(day["week_number"], (0, 0.0))
+            activity = day.get("running") or day.get("walking")
+            result[day["week_number"]] = (
+                count + int(activity is not None),
+                distance + (activity["distance_km"] if activity else 0.0),
+            )
+        return result
+
+    actual = weekly_load(days)
+    baseline = weekly_load(remaining_plan["remaining_training_days"])
+    revision_date = date.fromisoformat(remaining_plan["revision_date"])
+    full_weeks = sorted(
+        (week for week in remaining_plan["remaining_weekly_distance"]
+         if date.fromisoformat(week["start_date"]) >= revision_date
+         and (date.fromisoformat(week["end_date"])
+              - date.fromisoformat(week["start_date"])).days == 6),
+        key=lambda week: week["start_date"],
+    )
+    for previous, current in zip(full_weeks, full_weeks[1:]):
+        before, after = previous["week_number"], current["week_number"]
+        old_count, old_distance = actual.get(before, (0, 0.0))
+        count, distance = actual.get(after, (0, 0.0))
+        base_old_count, base_old_distance = baseline.get(before, (0, 0.0))
+        base_count, base_distance = baseline.get(after, (0, 0.0))
+        if count < old_count and base_count >= base_old_count:
+            raise ValueError(
+                f"Week {after} drops from {old_count} to {count} locomotion "
+                "sessions without a baseline recovery reduction. Start with "
+                "fewer sessions and keep frequency stable or build gradually."
+            )
+        if distance < old_distance - 0.01 and base_distance >= base_old_distance:
+            raise ValueError(
+                f"Week {after} drops from {old_distance:g} to {distance:g} km "
+                "without a baseline recovery reduction. Start at reduced load."
+            )
+        if count > old_count and old_count > 0 and distance > old_distance + 0.01:
+            raise ValueError(
+                f"Week {after} increases frequency and distance together. "
+                "Split the previous week's distance across shorter sessions."
+            )
     return recommendation

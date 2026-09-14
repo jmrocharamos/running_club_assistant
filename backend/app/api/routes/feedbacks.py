@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from app.services.recommendation_title_service import build_revision_title
 from app.services.running_plan_service import (
     synchronize_weekly_distances,
     validate_plan_mode,
+    validate_revision_load,
 )
 
 
@@ -201,42 +203,54 @@ def revise_recommendation_from_feedback(
         safety_assessment,
     )
 
-    try:
-        revised = get_recommendation(
-            input_text,
-            instructions,
-            prompt_version,
-            plan_mode=plan_mode,
-        )
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Your coach couldn't generate an updated plan right now. Please try again in a moment.",
-        ) from error
-    revised = synchronize_weekly_distances(
-        revised
-    )
-
-    revised = validate_plan_mode(
-        revised,
-        plan_mode,
-        safety_assessment.get(
-            "medically_cleared_activities"
-        ) or [],
-    )
-
     expected_dates = [
         day["date"] for day in remaining_plan["remaining_training_days"]
     ]
-    actual_dates = [
-        day["date"] for day in revised["content"]["training_days"]
-    ]
-
-    if actual_dates != expected_dates:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The revised plan changed the required schedule dates.",
-        )
+    generation_input = input_text
+    for attempt in range(2):
+        try:
+            revised = get_recommendation(
+                generation_input,
+                instructions,
+                prompt_version,
+                plan_mode=plan_mode,
+            )
+        except Exception as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Your coach couldn't generate an updated plan right now. Please try again in a moment.",
+            ) from error
+        try:
+            revised = synchronize_weekly_distances(revised)
+            revised = validate_plan_mode(
+                revised,
+                plan_mode,
+                safety_assessment.get("medically_cleared_activities") or [],
+            )
+            actual_dates = [
+                day["date"] for day in revised["content"]["training_days"]
+            ]
+            if actual_dates != expected_dates:
+                raise ValueError("The revised plan changed the required schedule dates.")
+            validate_revision_load(
+                revised, remaining_plan,
+                recommendation.survey_snapshot or {}, plan_mode,
+            )
+            break
+        except ValueError as error:
+            if attempt == 1:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Your coach couldn't produce a consistent revised schedule. Please try again. No revised plan was saved.",
+                ) from error
+            generation_input = (
+                input_text
+                + "\n\nPREVIOUS OUTPUT TO CORRECT\n"
+                + json.dumps(revised, ensure_ascii=False)
+                + "\n\nVALIDATION FAILURE\n"
+                + str(error)
+                + "\nReturn a corrected complete plan satisfying all original constraints."
+            )
 
     new_recommendation = Recommendation(
         survey_id=recommendation.survey_id,

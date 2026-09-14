@@ -73,7 +73,23 @@ Load:
 - Do not preserve the previous weekly distance as a target.
 - When locomotion sessions are removed, reduce total distance.
 - Never redistribute removed distance into remaining sessions.
+- Plan frequency and volume across all remaining full weeks before writing
+  individual sessions. Start conservatively, then keep frequency stable or build
+  toward the requested frequency; never front-load sessions and then remove them.
+- For a four-week return-to-running revision with two available days per week,
+  prefer 1, 1, 2, 2 walk-run sessions when progression is appropriate. Keeping one
+  session per week is also valid when the safety contract warrants stable load.
+  Progression is conditional on tolerating the earlier sessions, not mandatory.
+- Across full weeks, do not decrease locomotion frequency or weekly distance
+  unless the selected baseline already contains that reduction (a recovery week).
+  If new feedback requires reductions, begin at the reduced load and keep it
+  stable; do not invent an early peak followed by a reduction.
+- When adding a locomotion session, split the previous week's total distance
+  across shorter sessions; do not increase weekly distance at the same transition.
 - Keep adapted load stable or use only very small safe progression.
+- Sum walking, strength, and mobility duration on each training date, including
+  separate support blocks: stay within max_session_minutes. Fit warm-up,
+  cooldown, and explicit interval repetitions within the walking duration.
 - Weekly distance must equal running plus walking distance for that week.
 - Strength and mobility do not contribute to distance.
 
