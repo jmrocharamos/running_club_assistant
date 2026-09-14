@@ -29,6 +29,8 @@ def _user_profile(user: User) -> dict:
     }
 
 
+# Accept the slashless URL used by the frontend proxy without redirecting.
+@router.post('', response_model=ChatbotResponse, include_in_schema=False)
 @router.post('/', response_model=ChatbotResponse)
 def chat_with_coach(
         chat_data: ChatbotRequest,

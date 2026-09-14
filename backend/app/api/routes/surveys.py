@@ -20,6 +20,8 @@ def get_running_plan_survey_form(current_user: User = Depends(get_current_user))
     return RunningPlanSurveyAnswers.model_json_schema()
 
 
+# Accept the slashless URL used by the frontend proxy without redirecting.
+@router.post('', response_model=SurveyRead, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post('/', response_model=SurveyRead, status_code=status.HTTP_201_CREATED)
 def create_survey(
         survey_data: SurveyCreate,
@@ -45,6 +47,8 @@ def create_survey(
     return survey
 
 
+# Accept the slashless URL used by the frontend proxy without redirecting.
+@router.get('', response_model=list[SurveyRead], include_in_schema=False)
 @router.get('/', response_model=list[SurveyRead])
 def get_surveys(
         current_user: User = Depends(get_current_user),

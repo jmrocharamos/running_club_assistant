@@ -137,6 +137,8 @@ def generate_recommendation_for_current_user(
     return recommendation
 
 
+# Accept the slashless URL used by the frontend proxy without redirecting.
+@router.get('', response_model=list[RecommendationRead], include_in_schema=False)
 @router.get('/', response_model=list[RecommendationRead])
 def get_recommendations(
         current_user: User = Depends(get_current_user),
