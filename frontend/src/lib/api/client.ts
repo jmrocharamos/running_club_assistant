@@ -61,11 +61,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       signal,
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (error instanceof DOMException &&
+      (error.name === "TimeoutError" || error.name === "AbortError")) {
       throw new ApiError({
         kind: "timeout",
         status: null,
-        message: "This is taking longer than expected. Please try again.",
+        message: "The request timed out. If you were generating a plan, check your plans before trying again.",
       });
     }
 

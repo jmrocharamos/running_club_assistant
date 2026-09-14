@@ -49,6 +49,9 @@ export function CoachChatWidget() {
   const {
     messages,
     isHistoryLoading,
+    isHistoryError,
+    isHistoryFetching,
+    retryHistory,
     isOpen,
     hasUnread,
     closeChat,
@@ -61,6 +64,8 @@ export function CoachChatWidget() {
     endedChatSummary,
     dismissEndedChatSummary,
   } = useCoachChat();
+
+  const isHistoryUnavailable = isHistoryLoading || isHistoryError || isHistoryFetching;
 
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -134,7 +139,7 @@ export function CoachChatWidget() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsConfirmingEnd(true)}
-                disabled={isEndingChat || isSending || messages.length === 0}
+                disabled={isEndingChat || isSending || isHistoryUnavailable || messages.length === 0}
               >
                 {isEndingChat ? "Ending…" : "End chat"}
               </Button>
@@ -156,6 +161,15 @@ export function CoachChatWidget() {
                 <Skeleton className="h-10 w-2/3" />
                 <Skeleton className="ml-auto h-10 w-1/2" />
               </div>
+            ) : isHistoryError ? (
+              <div role="alert" className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Couldn’t load your conversation. Please try again.
+                </p>
+                <Button onClick={retryHistory} disabled={isHistoryFetching}>
+                  {isHistoryFetching ? "Retrying…" : "Retry"}
+                </Button>
+              </div>
             ) : messages.length === 0 ? (
               <div className="flex h-full items-start">
                 <ChatMessage message={WELCOME_MESSAGE} />
@@ -171,7 +185,7 @@ export function CoachChatWidget() {
 
           <ChatComposer
             onSend={sendMessage}
-            disabled={isSending || isEndingChat}
+            disabled={isSending || isEndingChat || isHistoryUnavailable}
             autoFocus
           />
         </div>
@@ -192,7 +206,7 @@ export function CoachChatWidget() {
             >
               Cancel
             </DialogClose>
-            <Button type="button" onClick={handleConfirmEndChat} disabled={isEndingChat}>
+            <Button type="button" onClick={handleConfirmEndChat} disabled={isEndingChat || isHistoryUnavailable}>
               {isEndingChat ? "Ending…" : "End chat"}
             </Button>
           </DialogFooter>

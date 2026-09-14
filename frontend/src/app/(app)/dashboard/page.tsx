@@ -16,11 +16,11 @@ import { useLatestSurvey } from "@/hooks/use-survey";
 export default function DashboardPage() {
   const { openChat } = useCoachChat();
   const { user, isLoading: isUserLoading } = useCurrentUser();
-  const { data: survey, isLoading: isSurveyLoading } = useLatestSurvey();
-  const { data: recommendations, isLoading: areRecommendationsLoading } =
-    useRecommendations();
-
-  const isLoading = isUserLoading || isSurveyLoading || areRecommendationsLoading;
+  const surveyQuery = useLatestSurvey();
+  const recommendationsQuery = useRecommendations();
+  const survey = surveyQuery.data;
+  const recommendations = recommendationsQuery.data;
+  const isLoading = isUserLoading || surveyQuery.isLoading || recommendationsQuery.isLoading;
 
   if (isLoading) {
     return (
@@ -29,6 +29,31 @@ export default function DashboardPage() {
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-40 w-full" />
       </div>
+    );
+  }
+
+  if (surveyQuery.isError || recommendationsQuery.isError) {
+    const isRetrying = surveyQuery.isFetching || recommendationsQuery.isFetching;
+    return (
+      <Card role="alert">
+        <CardHeader>
+          <CardTitle>Couldn’t load your dashboard</CardTitle>
+          <CardDescription>
+            We couldn’t retrieve your training information. Please try again.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            disabled={isRetrying}
+            onClick={() => {
+              if (surveyQuery.isError) void surveyQuery.refetch();
+              if (recommendationsQuery.isError) void recommendationsQuery.refetch();
+            }}
+          >
+            {isRetrying ? "Retrying…" : "Try again"}
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

@@ -19,6 +19,9 @@ import type { ChatHistoryResponse, ChatMemory, ChatMessage } from "@/types";
 interface CoachChatContextValue {
   messages: ChatMessage[];
   isHistoryLoading: boolean;
+  isHistoryError: boolean;
+  isHistoryFetching: boolean;
+  retryHistory: () => void;
   isOpen: boolean;
   hasUnread: boolean;
   openChat: () => void;
@@ -53,13 +56,23 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
   const [hasUnread, setHasUnread] = useState(false);
   const [endedChatSummary, setEndedChatSummary] = useState<ChatMemory | null>(null);
 
-  const { data: history, isLoading: isHistoryLoading } = useQuery({
+  const {
+    data: history,
+    isLoading: isHistoryLoading,
+    isError: isHistoryError,
+    isFetching: isHistoryFetching,
+    refetch: refetchHistory,
+  } = useQuery({
     queryKey: queryKeys.chatHistory,
     queryFn: () => chatApi.getHistory(),
     staleTime: Infinity,
     refetchOnMount: false,
   });
 
+  const retryHistory = useCallback(() => {
+    void refetchHistory();
+  }, [refetchHistory]);
+  const isHistoryUnavailable = isHistoryLoading || isHistoryError || isHistoryFetching;
   const messages = history?.messages ?? EMPTY_MESSAGES;
 
   const openChat = useCallback(() => {
@@ -83,6 +96,7 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
 
   const dispatchSend = useCallback(
     (message: string) => {
+      if (isHistoryUnavailable) return;
       const optimisticMessage: ChatMessage = { role: "user", content: message };
 
       queryClient.setQueryData<ChatHistoryResponse>(queryKeys.chatHistory, (current) => ({
@@ -112,7 +126,7 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
         },
       });
     },
-    [isOpen, queryClient, sendMutation],
+    [isHistoryUnavailable, isOpen, queryClient, sendMutation],
   );
 
   const sendMessage = useCallback(
@@ -124,6 +138,7 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
 
   const retryMessage = useCallback(
     (message: string) => {
+      if (isHistoryUnavailable) return;
       queryClient.setQueryData<ChatHistoryResponse>(queryKeys.chatHistory, (current) => {
         if (!current) return current;
 
@@ -140,7 +155,7 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
 
       dispatchSend(message);
     },
-    [dispatchSend, queryClient],
+    [dispatchSend, isHistoryUnavailable, queryClient],
   );
 
   const endChatMutation = useMutation({
@@ -160,14 +175,17 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
   });
 
   const endChat = useCallback(() => {
-    if (endChatMutation.isPending) return;
+    if (endChatMutation.isPending || isHistoryUnavailable) return;
     endChatMutation.mutate();
-  }, [endChatMutation]);
+  }, [endChatMutation, isHistoryUnavailable]);
 
   const value = useMemo<CoachChatContextValue>(
     () => ({
       messages,
       isHistoryLoading,
+      isHistoryError,
+      isHistoryFetching,
+      retryHistory,
       isOpen,
       hasUnread,
       openChat,
@@ -184,6 +202,9 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
     [
       messages,
       isHistoryLoading,
+      isHistoryError,
+      isHistoryFetching,
+      retryHistory,
       isOpen,
       hasUnread,
       openChat,
