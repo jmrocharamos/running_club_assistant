@@ -158,3 +158,27 @@ for coach review.
 - `social_media` (`dict[str, Any]` on `User`) has no structured UI — there's
   no reasonable generic editor for an arbitrary JSON blob, so it's left
   out of the Profile form rather than faked.
+
+## Vercel deployment
+
+Import the repository with `frontend` as the Root Directory and Next.js as the
+framework. Set these variables for the Production environment before building:
+
+```dotenv
+NEXT_PUBLIC_API_BASE_URL=/api
+API_BACKEND_URL=https://running-club-assistant-api.onrender.com
+```
+
+The browser calls `/api/...`; Next.js forwards requests to FastAPI while keeping
+cookies on the frontend domain. The page authentication proxy lets `/api` requests
+through so FastAPI handles authentication and returns JSON errors. Do not point
+`NEXT_PUBLIC_API_BASE_URL` directly at Render: its host-only cookies would not be
+available to the frontend's page authentication checks.
+
+After Vercel assigns the production URL, set `FRONTEND_BASE_URL` on Render to that
+URL and keep `ENVIRONMENT=production`. Rebuild Vercel after changing either API
+URL variable. Keep OpenAI, Langfuse, database, and JWT credentials on Render only.
+
+Verify login, a page reload, and logout on the deployed frontend. Check
+`/api/users/me` returns JSON 401 before login. Knowledge indexing is a separate
+production setup step; database migrations do not populate the knowledge base.

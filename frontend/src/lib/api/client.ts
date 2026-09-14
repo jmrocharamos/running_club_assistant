@@ -2,7 +2,7 @@ import { emitUnauthorized } from "@/lib/auth-events";
 import { ApiError, type FieldValidationError } from "@/types/api";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5002";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";

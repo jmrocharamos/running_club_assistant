@@ -14,6 +14,12 @@ const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-passwor
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // API authentication belongs to FastAPI. Login must reach it without a cookie,
+  // and unauthenticated API calls must return JSON 401s, not page redirects.
+  if (pathname === "/api" || pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const hasSession = request.cookies.has(AUTH_COOKIE_NAME);
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
