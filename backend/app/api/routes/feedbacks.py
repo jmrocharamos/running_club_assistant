@@ -22,7 +22,7 @@ from app.services.feedback_service import (
     create_feedback,
     get_feedback_by_recommendation_id,
 )
-from app.services.plan_revision_service import build_remaining_plan_context
+from app.services.plan_revision_service import PlanFinishedError, build_remaining_plan_context
 from app.services.recommendation_title_service import build_revision_title
 from app.services.running_plan_service import (
     synchronize_weekly_distances,
@@ -134,6 +134,15 @@ def revise_recommendation_from_feedback(
         for entry in feedback_entries
     ]
 
+    revision_date = date.today()
+    try:
+        remaining_plan = build_remaining_plan_context(recommendation_dict, revision_date)
+    except PlanFinishedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+
     try:
         safety_assessment = assess_feedback_safety(
             recommendation_dict,
@@ -165,11 +174,13 @@ def revise_recommendation_from_feedback(
 
     plan_mode = safety_assessment["plan_mode"]
 
-    remaining_plan = build_remaining_plan_context(
-        recommendation_dict,
-        date.today(),
-        requested_start_date=safety_assessment.get("requested_start_date"),
-    )
+    requested_start_date = safety_assessment.get("requested_start_date")
+    if requested_start_date is not None:
+        remaining_plan = build_remaining_plan_context(
+            recommendation_dict,
+            revision_date,
+            requested_start_date=requested_start_date,
+        )
 
     if plan_mode == "normal_running":
         prompt_version = "remaining"

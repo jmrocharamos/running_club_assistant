@@ -7,6 +7,10 @@ from app.services.running_plan_service import (
 )
 
 
+class PlanFinishedError(ValueError):
+    """The plan has no dates left to revise."""
+
+
 def build_remaining_plan_context(
         recommendation: dict[str, Any],
         revision_date: date,
@@ -36,7 +40,7 @@ def build_remaining_plan_context(
             remaining_training_days.append(training_day)
 
     if not remaining_training_days:
-        raise ValueError('No remaining training days after the revision date.')
+        raise PlanFinishedError("This plan has finished. Generate a new plan.")
 
     remaining_week_numbers = {
         training_day['week_number'] for training_day in remaining_training_days
