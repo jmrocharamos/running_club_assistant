@@ -1,3 +1,4 @@
+from app.services.telemetry import traced, trace_step
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -32,6 +33,7 @@ def _user_profile(user: User) -> dict:
 # Accept the slashless URL used by the frontend proxy without redirecting.
 @router.post('', response_model=ChatbotResponse, include_in_schema=False)
 @router.post('/', response_model=ChatbotResponse)
+@traced("Coach chat", tags=("coach-chat",), workflow=True)
 def chat_with_coach(
         chat_data: ChatbotRequest,
         current_user: User = Depends(get_current_user),
@@ -86,13 +88,15 @@ def chat_with_coach(
         },
     }
 
-    db.commit()
-    db.refresh(coach_memory)
+    with trace_step("save_coach_memory"):
+        db.commit()
+        db.refresh(coach_memory)
 
     return ChatbotResponse(reply=result["reply"])
 
 
 @router.post('/end', response_model=ChatbotEndResponse)
+@traced("Chat memory summary", tags=("coach-chat", "memory-summary"), workflow=True)
 def end_chat(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
@@ -138,8 +142,9 @@ def end_chat(
         },
     }
 
-    db.commit()
-    db.refresh(coach_memory)
+    with trace_step("save_coach_memory"):
+        db.commit()
+        db.refresh(coach_memory)
 
     return ChatbotEndResponse(
         summary=CoachMemorySummary(**coach_memory.summary)

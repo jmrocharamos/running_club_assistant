@@ -1,3 +1,5 @@
+from app.services.telemetry import current_trace_id, record_rating
+from app.services.telemetry import traced
 from datetime import date
 from uuid import UUID
 
@@ -53,6 +55,7 @@ def _get_owned_recommendation(
     response_model=RecommendationRead,
     status_code=status.HTTP_201_CREATED,
 )
+@traced("Plan generation", tags=("running-plan", "new-plan"), workflow=True)
 def generate_recommendation_for_current_user(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
@@ -121,6 +124,7 @@ def generate_recommendation_for_current_user(
     )
 
     recommendation = Recommendation(
+        langfuse_trace_id=current_trace_id(),
         survey_id=survey.id,
         user_id=current_user.id,
         recommendation_type=survey.survey_type,
@@ -209,6 +213,8 @@ def update_recommendation_rating(
 
     db.commit()
     db.refresh(recommendation)
+
+    record_rating(recommendation)
 
     return recommendation
 

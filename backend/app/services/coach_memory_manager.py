@@ -1,3 +1,4 @@
+from app.services.telemetry import traced
 from uuid import UUID
 
 from sqlalchemy import select
@@ -7,6 +8,7 @@ from app.models.coach_memory import CoachMemory
 from app.schemas.running_structured_outputs import CoachMemorySummary
 
 
+@traced("get_or_create_coach_memory", kind="span")
 def get_or_create_coach_memory(
     db: Session,
     user_id: UUID,

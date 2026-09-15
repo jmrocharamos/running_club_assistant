@@ -13,6 +13,8 @@ For a code-level map of the AI flows, start with
 the deep RAG walkthrough and the study roadmap for coach context, memory, chat,
 and plan generation.
 
+Langfuse configuration and testing: [`docs/LANGFUSE.md`](docs/LANGFUSE.md).
+
 ## Features
 
 - Cookie-based authentication and user-owned API routes

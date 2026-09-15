@@ -1,3 +1,5 @@
+from app.services.telemetry import current_trace_id, trace_step
+from app.services.telemetry import traced
 import json
 from datetime import date
 from uuid import UUID
@@ -100,6 +102,7 @@ def get_recommendation_feedback(
     response_model=RecommendationRead,
     status_code=status.HTTP_201_CREATED,
 )
+@traced("Plan revision", tags=("running-plan", "revised-plan"), workflow=True)
 def revise_recommendation_from_feedback(
     recommendation_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -209,12 +212,17 @@ def revise_recommendation_from_feedback(
     generation_input = input_text
     for attempt in range(2):
         try:
-            revised = get_recommendation(
-                generation_input,
-                instructions,
-                prompt_version,
-                plan_mode=plan_mode,
-            )
+            with trace_step(
+                "Revision correction" if attempt else "Revision generation",
+                metadata={"attempt": attempt + 1},
+                tags=("correction-retry",) if attempt else None,
+            ):
+                revised = get_recommendation(
+                    generation_input,
+                    instructions,
+                    prompt_version,
+                    plan_mode=plan_mode,
+                )
         except Exception as error:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -253,6 +261,7 @@ def revise_recommendation_from_feedback(
             )
 
     new_recommendation = Recommendation(
+        langfuse_trace_id=current_trace_id(),
         survey_id=recommendation.survey_id,
         user_id=recommendation.user_id,
         recommendation_type=recommendation.recommendation_type,

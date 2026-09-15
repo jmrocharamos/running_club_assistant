@@ -77,6 +77,8 @@ class Recommendation(Base):
         nullable=False,
     )
 
+    langfuse_trace_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     feedback_rating: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,

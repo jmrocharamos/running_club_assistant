@@ -1,6 +1,8 @@
 from typing import Any
 from dotenv import load_dotenv
-from langfuse.openai import OpenAI
+from openai import OpenAI
+from app.services.telemetry import trace_step, safe_update
+from app.core.config import ENVIRONMENT
 from app.schemas.feedback_revision import FeedbackSafetyAssessment
 from app.schemas.running_structured_outputs import RunningPlanOutput, ChatReplyOutput, ChatSummaryOutput
 from app.schemas.training_safety import TrainingSafetyAssessment
@@ -15,7 +17,7 @@ def get_training_safety_assessment(
     instructions: str,
     prompt_version: str,
 ) -> dict[str, Any]:
-    response = client.responses.parse(
+    response = _parse_response(
         model="gpt-5-mini",
         reasoning={"effort":"minimal"},
         instructions=instructions,
@@ -23,7 +25,7 @@ def get_training_safety_assessment(
         text_format=TrainingSafetyAssessment,
         metadata={
             "feature": "training_safety",
-            "environment": "local_backend",
+            "environment": ENVIRONMENT,
             "prompt_version": prompt_version,
         },
     )
@@ -46,14 +48,14 @@ def get_recommendation(
 ) -> dict[str, Any]:
     metadata = {
         "feature": "running_plan",
-        "environment": "local_backend",
+        "environment": ENVIRONMENT,
         "prompt_version": prompt_version,
     }
 
     if plan_mode is not None:
         metadata["plan_mode"] = plan_mode
 
-    response = client.responses.parse(
+    response = _parse_response(
         model="gpt-5-mini",
         instructions=instructions,
         input=input_text,
@@ -76,7 +78,7 @@ def get_feedback_safety_assessment(
         instructions: str,
         prompt_version: str,
 ) -> dict[str, Any]:
-    response = client.responses.parse(
+    response = _parse_response(
         model="gpt-5-mini",
         reasoning={"effort":"minimal"},
         instructions=instructions,
@@ -84,7 +86,7 @@ def get_feedback_safety_assessment(
         text_format=FeedbackSafetyAssessment,
         metadata={
             "feature": "feedback_safety",
-            "environment": "local_backend",
+            "environment": ENVIRONMENT,
             "prompt_version": prompt_version,
         },
     )
@@ -100,14 +102,14 @@ def get_feedback_safety_assessment(
 
 
 def get_chat_reply(input_text: str, instructions: str, prompt_version: str) -> dict[str, Any]:
-    response = client.responses.parse(
+    response = _parse_response(
         model="gpt-5-mini",
         instructions=instructions,
         input=input_text,
         text_format=ChatReplyOutput,
         metadata={
             "feature": "chatbot",
-            "environment": "local_backend",
+            "environment": ENVIRONMENT,
             "prompt_version": prompt_version,
         },
     )
@@ -123,14 +125,14 @@ def get_chat_reply(input_text: str, instructions: str, prompt_version: str) -> d
 
 
 def summarize_conversation(input_text: str, instructions: str, prompt_version: str) -> dict[str, Any]:
-    response = client.responses.parse(
+    response = _parse_response(
         model="gpt-4o-mini",
         instructions=instructions,
         input=input_text,
         text_format=ChatSummaryOutput,
         metadata={
             "feature": "coach_memory_summary",
-            "environment": "local_backend",
+            "environment": ENVIRONMENT,
             "prompt_version": prompt_version,
         },
     )
@@ -146,10 +148,43 @@ def summarize_conversation(input_text: str, instructions: str, prompt_version: s
 
 
 def create_embeddings(texts: list[str]) -> list[list[float]]:
-    response = client.embeddings.create(
+    response = _embed(
         model="text-embedding-3-small",
         input=texts,
     )
 
     return [item.embedding for item in response.data]
 
+
+
+def _parse_response(**kwargs):
+    metadata = kwargs.get("metadata", {})
+    with trace_step(
+        metadata.get("feature", "openai_response"), kind="generation",
+        model=kwargs["model"], version=metadata.get("prompt_version"),
+        metadata={"environment": ENVIRONMENT},
+    ) as observation:
+        response = client.responses.parse(**kwargs)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            cached = getattr(getattr(usage, "input_tokens_details", None), "cached_tokens", 0) or 0
+            reasoning = getattr(getattr(usage, "output_tokens_details", None), "reasoning_tokens", 0) or 0
+            safe_update(observation, usage_details={
+                "input": usage.input_tokens - cached,
+                "input_cached_tokens": cached,
+                "output": usage.output_tokens - reasoning,
+                "output_reasoning_tokens": reasoning,
+            })
+        if response.output_parsed is None:
+            safe_update(observation, level="ERROR", status_message="MissingStructuredOutput")
+        return response
+
+
+def _embed(**kwargs):
+    with trace_step("create_embeddings", kind="embedding", model=kwargs["model"],
+                    metadata={"text_count": len(kwargs["input"])}) as observation:
+        response = client.embeddings.create(**kwargs)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            safe_update(observation, usage_details={"input": usage.prompt_tokens})
+        return response

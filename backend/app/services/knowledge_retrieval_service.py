@@ -1,3 +1,4 @@
+from app.services.telemetry import traced
 from typing import Any
 
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from app.models.knowledge_chunk import KnowledgeChunk
 DEFAULT_RESULTS_LIMIT = 5
 MAX_COSINE_DISTANCE = 0.65
 
+@traced("retrieve_knowledge", kind="retriever")
 def retrieve_knowledge(
         db: Session,
         query: str,

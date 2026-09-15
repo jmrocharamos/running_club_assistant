@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+from starlette.concurrency import run_in_threadpool
+from app.services.telemetry import shutdown_telemetry
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,7 +9,13 @@ from app.api.routes import auth, users, surveys, recommendations, chatbot, feedb
 
 
 
-app = FastAPI(title="Running AI App")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await run_in_threadpool(shutdown_telemetry)
+
+
+app = FastAPI(title="Running AI App", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

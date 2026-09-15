@@ -1,4 +1,4 @@
-from langfuse import observe, propagate_attributes
+from app.services.telemetry import traced
 
 from app.client_openai import (
     get_recommendation,
@@ -20,6 +20,7 @@ from app.services.running_plan_service import (
 )
 
 
+@traced("assess_training_safety", kind="guardrail")
 def assess_training_safety(
     survey,
     prompt_version="safety1",
@@ -61,6 +62,7 @@ PLAN_MODE_CLEARANCE = {
 }
 
 
+@traced("validate_training_safety", kind="guardrail")
 def validate_training_safety(
     survey,
     assessment,
@@ -131,54 +133,50 @@ class TrainingBlockedError(Exception):
         self.message = message
 
 
-@observe(name="running_plan_generation")
+@traced("running_plan_generation")
 def generate_recommendation(
     user_id,
     user,
     survey,
 ):
-    with propagate_attributes(
-        user_id=str(user_id),
-        tags=["running_plan"],
-    ):
-        safety_assessment = assess_training_safety(survey)
-        safety_assessment = validate_training_safety(survey, safety_assessment)
+    safety_assessment = assess_training_safety(survey)
+    safety_assessment = validate_training_safety(survey, safety_assessment)
 
-        plan_mode = safety_assessment["plan_mode"]
+    plan_mode = safety_assessment["plan_mode"]
 
-        if plan_mode == "blocked":
-            raise TrainingBlockedError(
-                safety_assessment["message"]
-            )
-
-        prompt_version, instructions = get_running_plan_prompt(
-            plan_mode
+    if plan_mode == "blocked":
+        raise TrainingBlockedError(
+            safety_assessment["message"]
         )
 
-        input_text = build_running_plan_input(
-            user,
-            survey,
-            plan_mode,
-        )
+    prompt_version, instructions = get_running_plan_prompt(
+        plan_mode
+    )
 
-        recommendation = get_recommendation(
-            input_text,
-            instructions,
-            prompt_version,
-            plan_mode=plan_mode,
-        )
+    input_text = build_running_plan_input(
+        user,
+        survey,
+        plan_mode,
+    )
 
-        recommendation = synchronize_weekly_distances(
-            recommendation
-        )
+    recommendation = get_recommendation(
+        input_text,
+        instructions,
+        prompt_version,
+        plan_mode=plan_mode,
+    )
 
-        cleared_activities = (
-            (survey.get("answers") or {}).get("medically_cleared_activities")
-            or []
-        )
+    recommendation = synchronize_weekly_distances(
+        recommendation
+    )
 
-        return validate_plan_mode(
-            recommendation,
-            plan_mode,
-            cleared_activities,
-        )
+    cleared_activities = (
+        (survey.get("answers") or {}).get("medically_cleared_activities")
+        or []
+    )
+
+    return validate_plan_mode(
+        recommendation,
+        plan_mode,
+        cleared_activities,
+    )

@@ -1,3 +1,4 @@
+from app.services.telemetry import traced
 from datetime import date
 
 
@@ -62,6 +63,7 @@ def synchronize_weekly_distances(
     return recommendation
 
 
+@traced("validate_plan_mode", kind="guardrail")
 def validate_plan_mode(
         recommendation: dict,
         plan_mode: str,
@@ -138,6 +140,7 @@ def validate_plan_mode(
     return recommendation
 
 
+@traced("validate_revision_load", kind="guardrail")
 def validate_revision_load(
         recommendation: dict,
         remaining_plan: dict,

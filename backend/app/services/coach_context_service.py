@@ -1,3 +1,4 @@
+from app.services.telemetry import traced
 from typing import Any
 
 from sqlalchemy import select
@@ -25,6 +26,7 @@ SURVEY_FIELDS = (
 )
 
 
+@traced("build_coach_context", kind="span")
 def build_coach_context(
     db: Session,
     user: User,
