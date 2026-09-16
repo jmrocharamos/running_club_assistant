@@ -66,7 +66,7 @@ telemetry outbox.
 
 ## Migration and ratings
 
-Apply the new migration **before starting the changed backend**:
+Apply pending migrations **before starting backend code that needs them**:
 
 ```sh
 cd backend
@@ -74,24 +74,26 @@ cd backend
 ```
 
 The nullable `recommendations.langfuse_trace_id` stores the root trace ID for
-newly generated/revised plans. Existing plans remain null and cannot be linked
+newly generated/revised plans while tracing is active. Existing plans remain null and cannot be linked
 retroactively. The column is internal and is not exposed in the API response.
 
 A saved plan rating is sent as the numeric `plan_rating` score (1–5), using a
 stable score ID per plan so later rating changes update the same score. Scoring
 occurs after the database commit and only for plans with a trace ID.
 
-Migration `72d849ab01f3` has been applied locally for testing. Production still
-needs this migration when these uncommitted changes are eventually deployed.
-Downgrading drops only the trace-link column, so existing links would be lost.
+Migration `72d849ab01f3` adds the trace-link column and has been applied to the
+existing local and Render databases. New environments still need
+`alembic upgrade head`. Verify the target with `alembic current` rather than
+assuming code deployment updated the database. Downgrading this migration drops
+the trace-link column, so existing links would be lost.
 
-## Test tomorrow
+## Verification
 
 1. Run `.venv/bin/pytest -q` from `backend`. Tests disable external tracing;
    the SDK integration test uses an in-memory exporter and fake credentials.
 2. Restart the local backend with the existing Langfuse project settings.
 3. Generate a plan and inspect its trace in Langfuse, filtering by the
-   `development` environment. Confirm the model calls are children of the request.
+   configured environment (`development` locally, `production` on Render). Confirm the model calls are children of the request.
 4. Add feedback and revise. A validation correction should show attempts 1 and 2.
 5. Send a coach message, then end the chat. Confirm retrieval, embedding, summary,
    and memory save observations, with no prompt/response content.

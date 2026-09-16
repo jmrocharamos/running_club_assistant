@@ -22,17 +22,19 @@ chat with an AI coach.
 ## Getting started
 
 ```bash
-npm install
-cp .env.example .env.local   # adjust NEXT_PUBLIC_API_BASE_URL if needed
+npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
-The app runs at `http://localhost:3000` and expects the FastAPI backend at
-`http://127.0.0.1:5002` (see `backend/README` / `backend/app/main.py`).
+Run these commands from `frontend`. The app runs at `http://localhost:3000`.
+Requests to `/api` are forwarded to `http://localhost:5002` by default; see the
+[root setup guide](../README.md#run-locally) to start FastAPI and PostgreSQL.
 
 ```bash
 npm run build   # production build
 npm run start   # serve the production build
+npm test        # regression tests
 npm run lint    # eslint
 npx tsc --noEmit  # typecheck
 ```
@@ -41,7 +43,8 @@ npx tsc --noEmit  # typecheck
 
 | Variable | Description |
 | --- | --- |
-| `NEXT_PUBLIC_API_BASE_URL` | Base URL of the FastAPI backend. Defaults to `http://127.0.0.1:5002`. |
+| `NEXT_PUBLIC_API_BASE_URL` | Browser API prefix. Defaults to `/api`; retain this for same-origin authentication. |
+| `API_BACKEND_URL` | Server-side forwarding destination. Defaults to `http://localhost:5002`; use the Render API URL on Vercel. |
 
 ## Architecture
 
@@ -60,7 +63,6 @@ src/
       plans/
         [id]/               plan detail: rating, favorite, feedback, regenerate
       favorites/
-      coach/
       profile/
   components/
     app-shell/               sidebar, mobile drawer nav, header
@@ -90,7 +92,7 @@ src/
 
 All HTTP calls go through `lib/api/client.ts`, which centralizes the base
 URL, JSON handling, and error normalization into a typed `ApiError` (`kind`:
-`validation | not_found | conflict | bad_request | server | network`). Every
+`validation | not_found | conflict | bad_request | server | network | timeout`). Every
 resource (`users`, `surveys`, `recommendations`, `feedback`, `chat`) has its
 own thin wrapper file — no `fetch()` calls happen directly in components.
 
@@ -115,9 +117,9 @@ profile. `SessionProvider` restores the session through `GET /auth/me`, while
 the authenticated user instead of accepting an arbitrary user ID from the
 browser.
 
-Password-reset email delivery currently uses a local console sender. In local
-development, the reset URL appears in the FastAPI terminal rather than being
-sent to a real inbox.
+Password-reset email delivery currently uses a console sender. Reset URLs are
+logged by the backend rather than delivered to an inbox; no production email
+provider is configured.
 
 ## Backend integration
 

@@ -1,184 +1,269 @@
 # Running Club Assistant
 
-FastAPI backend for an AI-assisted running club. The application stores users,
-surveys, running recommendations, feedback, coach memory, and club knowledge.
-PostgreSQL with pgvector runs in Docker, while FastAPI runs locally through the
-project virtual environment.
+An AI-assisted running coach with personalized training plans, feedback-driven
+revisions, and a conversational coach grounded in club knowledge. Built with
+Next.js, FastAPI, PostgreSQL, and OpenAI, with Langfuse tracing for AI workflows.
 
-A Next.js frontend lives in [`frontend/`](frontend/) — see
-[`frontend/README.md`](frontend/README.md) for its setup and architecture.
+**[Open the app](https://running-club-assistant.vercel.app)** ·
+**[API documentation](https://running-club-assistant-api.onrender.com/docs)**
 
-For a code-level map of the AI flows, start with
-[`docs/SYSTEM_FLOW_NOTES.md`](docs/SYSTEM_FLOW_NOTES.md). It currently contains
-the deep RAG walkthrough and the study roadmap for coach context, memory, chat,
-and plan generation.
+## What you can do
 
-Langfuse configuration and testing: [`docs/LANGFUSE.md`](docs/LANGFUSE.md).
+- Create an account and complete a running survey with goals, availability,
+  experience, equipment, and health constraints.
+- Generate a training plan with running or walking, strength, and mobility.
+- Submit feedback and revise the remaining plan. Safety checks can request a
+  health update or pause generation for coach review.
+- Browse saved plans, mark favorites, and give plans a 1–5 rating.
+- Chat with a coach using survey and plan context, conversation memory, and
+  relevant club documents retrieved through vector search.
+- Manage your profile and review survey history.
 
-## Features
+## Architecture
 
-- Cookie-based authentication and user-owned API routes
-- Survey history with soft deletion
-- Running-plan and feedback workflows
-- Conversational running-coach endpoint with per-user memory
-- SQLAlchemy database models and sessions
-- Alembic database migrations
-- PostgreSQL knowledge chunks with pgvector embeddings
-- Pydantic schemas for request and response validation
-- OpenAI integration for AI-generated running guidance
-- Structured service layer for recommendation and feedback logic
-- Environment-based configuration with `.env`
-
-## Tech Stack
-
-Python 3.12 · FastAPI · SQLAlchemy · Alembic · Pydantic · PostgreSQL ·
-pgvector · Docker Compose · OpenAI API · Langfuse · Uvicorn
-
-## Local Architecture
-
-```text
-FastAPI and Alembic (local Python environment)
-                    |
-                    | 127.0.0.1:5432
-                    v
-PostgreSQL 16 + pgvector (Docker container)
+```mermaid
+flowchart LR
+    Browser[Runner's browser] --> Frontend[Next.js frontend · Vercel]
+    Frontend -->|/api forwarding| Backend[FastAPI backend · Render]
+    Backend --> DB[(PostgreSQL + pgvector · Render)]
+    Backend --> OpenAI[OpenAI · generation and embeddings]
+    Backend --> Langfuse[Langfuse · traces, usage and ratings]
 ```
 
-Only the database is containerized. The FastAPI application runs locally.
+The browser calls `/api` on the frontend domain. Next.js forwards those requests
+to FastAPI, keeping authentication cookies on the frontend domain. FastAPI
+validates the JWT cookie and resource ownership on protected endpoints.
 
-## Project Structure
+Locally, PostgreSQL runs in Docker; the backend and frontend run directly on your
+machine. The local Compose file does not deploy the application servers.
 
-```text
-backend/
-├── alembic/                # database migrations
-├── app/
-│   ├── api/routes/          # API endpoints
-│   ├── db/                  # database setup and sessions
-│   ├── models/              # SQLAlchemy models
-│   ├── prompts/             # AI prompt inputs and templates
-│   ├── schemas/             # Pydantic schemas
-│   ├── services/            # application logic
-│   └── main.py              # FastAPI application entry point
-├── compose.yaml             # PostgreSQL and pgvector container
-├── .env.example             # safe environment-variable template
-├── alembic.ini
-└── requirements.txt
+| Component | Technology |
+| --- | --- |
+| Frontend | Next.js 16, React, TypeScript, Tailwind CSS, shadcn/ui |
+| Forms and server state | React Hook Form, Zod, TanStack Query |
+| Backend | Python, FastAPI, Pydantic, SQLAlchemy, Alembic |
+| Database and retrieval | PostgreSQL, pgvector, LangChain text splitting |
+| AI | OpenAI structured responses and embeddings |
+| Observability | Langfuse workflow traces, tags, token usage, and plan-rating scores |
 
-frontend/
-├── src/
-│   ├── app/                 # Next.js App Router pages
-│   ├── components/          # UI components (app shell, survey, plans, chat...)
-│   ├── hooks/                # TanStack Query hooks per resource
-│   ├── lib/                  # API client, validation schemas, utilities
-│   └── types/                 # TypeScript types mirroring backend schemas
-├── .env.example
-└── package.json
-```
+## Run locally
 
-## Getting Started
+### Prerequisites
 
-Clone the repository and enter the backend directory:
+- Python 3.12 (the local development version)
+- Node.js 22 LTS and npm
+- Docker with Docker Compose
+- An OpenAI API key for generation, chat, and embedding calls
+- A Langfuse project if you want tracing (optional)
+
+### 1. Set up the backend
 
 ```bash
-git clone https://github.com/NothinginVain/running_club_assistant.git
+git clone https://github.com/jmrocharamos/running_club_assistant.git
 cd running_club_assistant/backend
-```
-
-Create and activate a Python 3.12 virtual environment:
-
-```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-```
-
-Create the local environment file:
-
-```bash
 cp .env.example .env
 ```
 
-Replace every `CHANGE_ME` value in `.env`. Use the same generated database
-password in `POSTGRES_PASSWORD` and `DATABASE_URL`. Never commit the real
-`.env` file.
+Edit `backend/.env` before continuing:
 
-Start PostgreSQL with pgvector:
+| Variable | Local configuration |
+| --- | --- |
+| `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD` | Credentials used by the local Docker database |
+| `DATABASE_URL` | `postgresql+psycopg://USER:PASSWORD@127.0.0.1:5432/DATABASE` |
+| `OPENAI_API_KEY` | Your API key; kept on the backend |
+| `JWT_SECRET_KEY` | A randomly generated secret |
+| `ENVIRONMENT` | `development` for local HTTP |
+| `FRONTEND_BASE_URL` | `http://localhost:3000` |
+| `LANGFUSE_TRACING_ENABLED` | Set to `false` to work without Langfuse |
+
+Use matching database credentials in the `POSTGRES_*` variables and
+`DATABASE_URL`. The `postgresql+psycopg://` prefix selects the installed Psycopg 3
+driver. URL-encode special characters in connection-string credentials.
+
+Generate a JWT secret locally:
 
 ```bash
-docker compose pull
-docker compose up -d --wait
-docker compose ps
+python -c 'import secrets; print(secrets.token_urlsafe(64))'
 ```
 
-Apply all database migrations from the local virtual environment:
+Keep real credentials in ignored environment files or hosting-platform secrets;
+never commit them. [Langfuse setup](docs/LANGFUSE.md) explains its optional keys.
+
+### 2. Start the database and API
+
+From `backend`, with the virtual environment active:
 
 ```bash
+docker compose up -d --wait
 alembic upgrade head
 alembic current
-```
-
-Confirm that Alembic reports the latest migration from this checkout as the
-current head. Migration identifiers change as the project evolves, so the
-repository should not document a fixed revision identifier here.
-
-Run the application:
-
-```bash
 uvicorn app.main:app --reload --port 5002
 ```
 
-The API will be available at:
+The API runs at `http://localhost:5002`; interactive documentation is at
+`http://localhost:5002/docs`. Alembic creates the schema and enables pgvector.
+Migrations do not create users or populate the knowledge base.
+
+### 3. Start the frontend
+
+In a second terminal, from the repository root:
+
+```bash
+cd frontend
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+The example uses `NEXT_PUBLIC_API_BASE_URL=/api` and
+`API_BACKEND_URL=http://localhost:5002`. Open `http://localhost:3000`, register an
+account, and complete a survey. Sign in with your email address, not username.
+
+### 4. Populate club knowledge
+
+From `backend`, with the virtual environment active:
+
+```bash
+python -m scripts.sync_knowledge_base
+python -m scripts.index_knowledge_base
+```
+
+The first command synchronizes documents from `backend/knowledge_docs`. The
+second rebuilds the knowledge chunks and embeddings, replacing existing chunks
+in a transaction. It calls the OpenAI embeddings API and incurs usage charges.
+Run indexing when setting up a new database or updating the source documents,
+not on every server startup.
+
+## Tests and checks
+
+Backend tests use a separate local database named `running_club_test`. Create it
+once using the configured local database user (the command below uses the example
+username):
+
+```bash
+cd backend
+docker compose exec db createdb -U running_club running_club_test
+docker compose exec db psql -U running_club -d running_club_test -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+.venv/bin/pytest -q
+```
+
+If the test database already exists, skip `createdb`. Keep `backend/.env` pointed
+at your local database when running tests: fixtures derive the test connection
+from it and create, truncate, and drop application tables in `running_club_test`.
+The automated suite mocks AI calls and disables external Langfuse export; the SDK
+test uses an in-memory exporter.
+
+Frontend checks, from the repository root:
+
+```bash
+cd frontend
+npm test
+npm run lint
+npx tsc --noEmit
+npm run build
+```
+
+See [frontend reliability checks](frontend/tests/README.md) and
+[Langfuse verification](docs/LANGFUSE.md#verification) for manual checks.
+
+## Deployment
+
+### FastAPI and PostgreSQL on Render
+
+The backend uses Render's native Python runtime, with managed PostgreSQL and
+pgvector in the same region. No application Dockerfile is required.
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `backend` |
+| Runtime | Python 3 |
+| Build command | `pip install -r requirements.txt` |
+| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Health-check path | `/` (application liveness only) |
+
+Set `DATABASE_URL` to Render's **internal** database URL, using the
+`postgresql+psycopg://` prefix. Configure `OPENAI_API_KEY`, a production
+`JWT_SECRET_KEY`, `ENVIRONMENT=production`, and
+`FRONTEND_BASE_URL=https://running-club-assistant.vercel.app`. Add the Langfuse
+project settings to enable production traces. Keep secrets on Render.
+
+**Apply migrations before starting code that depends on a changed schema.**
+The Uvicorn start command above does not run Alembic. Where a pre-deploy command
+is available, use `alembic upgrade head`. Otherwise, apply migrations manually
+against the production database before deploying the new backend. For local
+migration commands, use Render's external database connection with TLS; its
+internal hostname is for services on Render's private network.
+
+Use backward-compatible migrations when old and new versions overlap during a
+deploy. Deploying code without its required migration can break plan queries.
+See [Render's FastAPI guide](https://render.com/docs/deploy-fastapi) and
+[deployment commands](https://render.com/docs/deploys#pre-deploy-command).
+
+### Next.js on Vercel
+
+Import the repository, choose **Next.js**, and set the root directory to
+`frontend`. Configure these variables before building:
+
+```dotenv
+NEXT_PUBLIC_API_BASE_URL=/api
+API_BACKEND_URL=https://running-club-assistant-api.onrender.com
+```
+
+Do not put API keys or database credentials in `NEXT_PUBLIC_*` variables. Rebuild
+after changing the API URL configuration. The [frontend guide](frontend/README.md#vercel-deployment)
+explains forwarding and login verification.
+
+Local and production databases are separate. Deploying code or running migrations
+does not copy accounts, plans, or embeddings between them.
+
+## Observability
+
+Langfuse groups model calls and service steps into workflow traces. Trace tags
+include `new-plan`, `revised-plan`, `coach-chat`, `memory-summary`, and
+`correction-retry`. Generation traces record model, prompt version, and token
+usage; Langfuse can infer cost from its model pricing definitions.
+
+New plans store an internal trace reference so a user's 1–5 rating can be attached
+as a `plan_rating` score. This is user feedback, not an automated quality or
+safety assessment. Application instrumentation excludes raw prompts, responses,
+health details, passwords, and tokens. Telemetry failures do not block app flows.
+See [Langfuse configuration and limitations](docs/LANGFUSE.md).
+
+## Repository map
 
 ```text
-http://127.0.0.1:5002
+backend/
+  app/api/routes/       HTTP endpoints and authentication dependencies
+  app/models/           SQLAlchemy database models
+  app/schemas/          Request, response, and AI-output schemas
+  app/prompts/          Generation, revision, safety, and chat prompts
+  app/services/         Coaching, retrieval, validation, and telemetry
+  alembic/              Database migrations
+  knowledge_docs/       Club and training knowledge sources
+  scripts/              Document synchronization and embedding indexing
+  tests/                Backend regression tests
+  compose.yaml          Local PostgreSQL + pgvector
+frontend/
+  src/app/              Pages and layouts
+  src/components/       UI, survey, plan, and chat components
+  src/hooks/            Queries and mutations
+  src/lib/api/          API client and resource wrappers
+  tests/                Frontend regression tests
+docs/
+  SYSTEM_FLOW_NOTES.md   AI flow and retrieval notes
+  LANGFUSE.md            Observability setup and verification
 ```
 
-Interactive API documentation is available at:
+## Current limitations
 
-```text
-http://127.0.0.1:5002/docs
-```
-
-## Database Verification
-
-List the database tables:
-
-```bash
-docker compose exec db \
-  psql -U running_club -d running_club \
-  -c "\dt public.*"
-```
-
-Verify pgvector:
-
-```bash
-docker compose exec db \
-  psql -U running_club -d running_club \
-  -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
-```
-
-Stop the database without deleting its persistent volume:
-
-```bash
-docker compose stop
-```
-
-## What This Project Demonstrates
-
-- Backend API design with FastAPI
-- Database modeling with SQLAlchemy
-- Reproducible schema evolution with Alembic
-- Local containerized PostgreSQL development
-- Input validation with Pydantic
-- Layered project structure
-- AI API integration
-- Structured chatbot memory
-- Semantic retrieval with LangChain, OpenAI embeddings, and pgvector
-- Handling user feedback and recommendation data
-
-## Future Improvements
-
-- Expand automated coverage for AI and retrieval workflows
-- Add production email delivery for password resets
-- Expand recommendation history and analytics
+- Password-reset requests use a console email sender. No email provider is wired
+  up, so reset links are logged rather than delivered to an inbox.
+- Plan generation and revision run within HTTP requests. A request can time out
+  while the backend continues generating; check saved plans before retrying.
+- A coach-review safety response pauses the flow; it is not an integrated human
+  review queue.
+- Langfuse export is best effort, without a durable retry queue. Older plans
+  without trace references cannot receive linked scores retroactively.
