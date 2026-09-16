@@ -5,6 +5,7 @@ from datetime import date
 def calculate_weekly_distance_totals(
         training_days: list[dict],
 ) -> dict[int, float]:
+    """Sum running and walking kilometres by week, omitting zero-distance days."""
     totals_by_week = {}
 
     for training_day in training_days:
@@ -38,6 +39,7 @@ def calculate_weekly_distance_totals(
 def synchronize_weekly_distances(
         recommendation: dict,
 ) -> dict:
+    """Sort sessions and replace weekly distance totals in place; return the same plan."""
     content = recommendation["content"]
     training_days = content.get("training_days", [])
 
@@ -69,6 +71,7 @@ def validate_plan_mode(
         plan_mode: str,
         cleared_activities: list[str],
 ) -> dict:
+    """Raise ValueError for activities incompatible with the mode or reported clearance."""
     easy_intensities = {
         "recovery",
         "very_easy",
@@ -182,6 +185,7 @@ def validate_revision_load(
     actual = weekly_load(days)
     baseline = weekly_load(remaining_plan["remaining_training_days"])
     revision_date = date.fromisoformat(remaining_plan["revision_date"])
+    # A partially elapsed week is not comparable to a full week of sessions.
     full_weeks = sorted(
         (week for week in remaining_plan["remaining_weekly_distance"]
          if date.fromisoformat(week["start_date"]) >= revision_date
@@ -195,6 +199,7 @@ def validate_revision_load(
         count, distance = actual.get(after, (0, 0.0))
         base_old_count, base_old_distance = baseline.get(before, (0, 0.0))
         base_count, base_distance = baseline.get(after, (0, 0.0))
+        # Preserve planned recovery reductions already present in the baseline.
         if count < old_count and base_count >= base_old_count:
             raise ValueError(
                 f"Week {after} drops from {old_count} to {count} locomotion "

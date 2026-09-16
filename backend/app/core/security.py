@@ -26,6 +26,7 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    """Check a password against its stored hash; treat verification errors as a mismatch."""
     try:
         return _password_hasher.verify(password, password_hash)
     except Exception:
@@ -33,6 +34,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_access_token(user_id: UUID) -> str:
+    """Sign an expiring session token identifying the user by UUID."""
     now = datetime.now(timezone.utc)
     payload = {
         "sub": str(user_id),
@@ -93,6 +95,7 @@ def get_current_user(
     request: Request,
     db: Session = Depends(get_db),
 ) -> User:
+    """Resolve the session cookie to a database user or reject unauthenticated access."""
     token = request.cookies.get(AUTH_COOKIE_NAME)
 
     if not token:
@@ -114,9 +117,11 @@ def get_current_user(
 
 
 def hash_reset_token(raw_token: str) -> str:
+    """Hash a reset token for storage and lookup without saving the usable token."""
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
 def generate_reset_token() -> tuple[str, str]:
+    """Return a reset token for the link and its hash for database storage."""
     raw_token = secrets.token_urlsafe(32)
     return raw_token, hash_reset_token(raw_token)

@@ -14,6 +14,7 @@ _trace_id = ContextVar('application_trace_id', default=None)
 
 @lru_cache(maxsize=1)
 def telemetry_client():
+    """Return a cached Langfuse client, or None when disabled, unconfigured, or unavailable."""
     if os.getenv('LANGFUSE_TRACING_ENABLED', 'true').lower() != 'true':
         return None
     public = os.getenv('LANGFUSE_PUBLIC_KEY')
@@ -34,6 +35,7 @@ def telemetry_client():
 
 
 def safe_update(observation, **values):
+    """Apply observation metadata without letting telemetry failures interrupt the request."""
     if observation is not None:
         try:
             observation.update(**values)
@@ -43,6 +45,11 @@ def safe_update(observation, **values):
 
 @contextmanager
 def trace_step(name, *, kind='span', metadata=None, model=None, version=None, tags=None, trace_name=None):
+    """Trace a scoped operation while preserving application exceptions.
+
+    Callers supply metadata only; error exports contain the exception class,
+    without its message or traceback.
+    """
     observation = manager = None
     token = None
     propagation = None
@@ -90,6 +97,7 @@ def trace_step(name, *, kind='span', metadata=None, model=None, version=None, ta
 
 
 def traced(name, *, kind='span', tags=None, workflow=False):
+    """Trace a synchronous workflow using identifiers and retrieval metrics, not payloads."""
     def decorate(function):
         parameters = signature(function)
         @wraps(function)
@@ -116,10 +124,12 @@ def traced(name, *, kind='span', tags=None, workflow=False):
 
 
 def current_trace_id():
+    """Return the active trace ID, or None when no traced operation is active."""
     return _trace_id.get()
 
 
 def record_rating(recommendation):
+    """Export the saved rating to its generation trace using a stable score ID."""
     if not recommendation.langfuse_trace_id:
         return
     try:
@@ -136,6 +146,7 @@ def record_rating(recommendation):
 
 
 def shutdown_telemetry():
+    """Flush pending trace events without failing application shutdown."""
     try:
         client = telemetry_client()
         if client is not None:

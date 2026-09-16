@@ -31,6 +31,7 @@ def build_coach_context(
     db: Session,
     user: User,
 ) -> dict[str, Any]:
+    """Collect the user profile, latest running survey, and recent plans and feedback."""
     latest_survey = db.scalars(
         select(Survey)
         .where(

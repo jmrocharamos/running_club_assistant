@@ -16,7 +16,11 @@ def build_remaining_plan_context(
         revision_date: date,
         requested_start_date: date | None = None,
 ) -> dict[str, Any]:
+    """Copy sessions dated on or after revision_date and recalculate their weekly totals.
 
+    Optionally shift the remaining schedule to a new start date. Raise
+    PlanFinishedError when no dates remain; leave the original plan unchanged.
+    """
     content = deepcopy(recommendation.get("content") or {})
     training_days = content.get("training_days") or []
     weekly_distance = content.get("weekly_distance") or []

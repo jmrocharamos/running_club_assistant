@@ -17,6 +17,7 @@ def get_training_safety_assessment(
     instructions: str,
     prompt_version: str,
 ) -> dict[str, Any]:
+    """Request a structured training assessment; raise ValueError if none is returned."""
     response = _parse_response(
         model="gpt-5-mini",
         reasoning={"effort":"minimal"},
@@ -46,6 +47,7 @@ def get_recommendation(
         prompt_version: str,
         plan_mode: str | None = None,
 ) -> dict[str, Any]:
+    """Generate a schema-validated plan; domain rules are checked by the caller."""
     metadata = {
         "feature": "running_plan",
         "environment": ENVIRONMENT,
@@ -78,6 +80,7 @@ def get_feedback_safety_assessment(
         instructions: str,
         prompt_version: str,
 ) -> dict[str, Any]:
+    """Request a structured decision on whether feedback permits plan revision."""
     response = _parse_response(
         model="gpt-5-mini",
         reasoning={"effort":"minimal"},
@@ -102,6 +105,7 @@ def get_feedback_safety_assessment(
 
 
 def get_chat_reply(input_text: str, instructions: str, prompt_version: str) -> dict[str, Any]:
+    """Generate a structured coach reply from the assembled conversation context."""
     response = _parse_response(
         model="gpt-5-mini",
         instructions=instructions,
@@ -125,6 +129,7 @@ def get_chat_reply(input_text: str, instructions: str, prompt_version: str) -> d
 
 
 def summarize_conversation(input_text: str, instructions: str, prompt_version: str) -> dict[str, Any]:
+    """Generate structured coach memory from the supplied summary and conversation."""
     response = _parse_response(
         model="gpt-4o-mini",
         instructions=instructions,
@@ -148,6 +153,7 @@ def summarize_conversation(input_text: str, instructions: str, prompt_version: s
 
 
 def create_embeddings(texts: list[str]) -> list[list[float]]:
+    """Create one embedding per input text for knowledge indexing or retrieval."""
     response = _embed(
         model="text-embedding-3-small",
         input=texts,
@@ -158,6 +164,7 @@ def create_embeddings(texts: list[str]) -> list[list[float]]:
 
 
 def _parse_response(**kwargs):
+    """Parse a structured model response and trace usage without exporting payloads."""
     metadata = kwargs.get("metadata", {})
     with trace_step(
         metadata.get("feature", "openai_response"), kind="generation",
@@ -169,6 +176,7 @@ def _parse_response(**kwargs):
         if usage is not None:
             cached = getattr(getattr(usage, "input_tokens_details", None), "cached_tokens", 0) or 0
             reasoning = getattr(getattr(usage, "output_tokens_details", None), "reasoning_tokens", 0) or 0
+            # Cached and reasoning tokens are subsets; subtract them to avoid double counting.
             safe_update(observation, usage_details={
                 "input": usage.input_tokens - cached,
                 "input_cached_tokens": cached,
@@ -181,6 +189,7 @@ def _parse_response(**kwargs):
 
 
 def _embed(**kwargs):
+    """Request embeddings while tracing only the model, text count, and token usage."""
     with trace_step("create_embeddings", kind="embedding", model=kwargs["model"],
                     metadata={"text_count": len(kwargs["input"])}) as observation:
         response = client.embeddings.create(**kwargs)

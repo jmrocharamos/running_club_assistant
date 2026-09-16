@@ -18,6 +18,10 @@ def retrieve_knowledge(
         query: str,
         limit: int = DEFAULT_RESULTS_LIMIT,
 ) -> list[dict[str, Any]]:
+    """Embed a query and return nearby knowledge chunks with source metadata.
+
+    Blank queries return no results without calling the embedding API.
+    """
     clean_query = query.strip()
 
     if not clean_query:

@@ -19,6 +19,7 @@ HEADING_LINE_RE = re.compile(r"^#{1,6}\s.*$", re.MULTILINE)
 
 
 def _has_substantive_content(text: str, min_chars: int = 20) -> bool:
+    """Reject fragments with too little text after removing headings, images, and links."""
     stripped = HEADING_LINE_RE.sub("", text)
     stripped = IMAGE_RE.sub("", stripped)
     stripped = LINK_RE.sub("", stripped)
@@ -26,6 +27,7 @@ def _has_substantive_content(text: str, min_chars: int = 20) -> bool:
 
 
 def chunk_document(content: str) -> list[dict]:
+    """Split Markdown into overlapping chunks with heading metadata, skipping sparse fragments."""
     header_splitter = MarkdownHeaderTextSplitter(
         headers_to_split_on=HEADERS_TO_SPLIT_ON,
         strip_headers=False,

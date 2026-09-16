@@ -13,6 +13,7 @@ def get_or_create_coach_memory(
     db: Session,
     user_id: UUID,
 ) -> CoachMemory:
+    """Return existing coach memory or stage a default row; the caller commits."""
     coach_memory = db.scalars(
         select(CoachMemory).where(
             CoachMemory.user_id == user_id,

@@ -111,6 +111,7 @@ def forgot_password(
     db: Session = Depends(get_db),
     email_sender: EmailSender = Depends(get_email_sender),
 ):
+    """Issue a reset link for known users and return the same message for every email."""
     user = db.scalar(select(User).where(User.email == forgot_data.email))
 
     if user:
@@ -135,6 +136,7 @@ def reset_password(
     reset_data: ResetPasswordRequest,
     db: Session = Depends(get_db),
 ):
+    """Validate an unused reset token, then save the new password and mark the token used."""
     token_hash = hash_reset_token(reset_data.token)
     reset_token = db.scalar(
         select(PasswordResetToken).where(

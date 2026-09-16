@@ -39,6 +39,7 @@ def chat_with_coach(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
 ):
+    """Generate a reply using coach memory and retrieved knowledge, then save the exchange."""
     coach_memory = get_or_create_coach_memory(db, current_user.id)
     chat_memory = coach_memory.summary.get("chat", {})
     conversation_history = chat_memory.get(
@@ -101,6 +102,7 @@ def end_chat(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
 ):
+    """Save an updated conversation summary and clear the active chat after summarization."""
     coach_memory = get_or_create_coach_memory(db, current_user.id)
     chat_memory = coach_memory.summary.get("chat", {})
     conversation_history = chat_memory.get(

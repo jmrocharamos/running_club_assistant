@@ -25,6 +25,7 @@ def assess_training_safety(
     survey,
     prompt_version="safety1",
 ):
+    """Choose a plan mode, bypassing the model when no pain or issue is reported."""
     answers = survey.get("answers") or {}
 
     issue_areas = set(
@@ -67,6 +68,7 @@ def validate_training_safety(
     survey,
     assessment,
 ):
+    """Reject assessment modes that conflict with reported pain or medical clearance."""
     answers = survey.get("answers") or {}
 
     issue_areas = set(
@@ -139,6 +141,11 @@ def generate_recommendation(
     user,
     survey,
 ):
+    """Assess safety, generate a plan, and validate its activities before returning it.
+
+    Raise TrainingBlockedError for a blocked assessment. Persistence belongs
+    to the calling route.
+    """
     safety_assessment = assess_training_safety(survey)
     safety_assessment = validate_training_safety(survey, safety_assessment)
 

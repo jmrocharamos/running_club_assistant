@@ -108,6 +108,11 @@ def revise_recommendation_from_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Revise remaining sessions after a feedback safety check and save a new plan.
+
+    Allow one correction attempt for invalid output; save only after all
+    schedule, activity, and load checks pass.
+    """
     recommendation = _get_owned_recommendation(recommendation_id, current_user, db)
 
     feedback_entries = get_feedback_by_recommendation_id(
@@ -251,6 +256,7 @@ def revise_recommendation_from_feedback(
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail="Your coach couldn't produce a consistent revised schedule. Please try again. No revised plan was saved.",
                 ) from error
+            # Give the single correction attempt the failed output and the exact rule it broke.
             generation_input = (
                 input_text
                 + "\n\nPREVIOUS OUTPUT TO CORRECT\n"
