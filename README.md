@@ -188,26 +188,30 @@ pgvector in the same region. No application Dockerfile is required.
 | Root directory | `backend` |
 | Runtime | Python 3 |
 | Build command | `pip install -r requirements.txt` |
-| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Start command | `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | Health-check path | `/` (application liveness only) |
 
 Set `DATABASE_URL` to Render's **internal** database URL, using the
 `postgresql+psycopg://` prefix. Configure `OPENAI_API_KEY`, a production
 `JWT_SECRET_KEY`, `ENVIRONMENT=production`, and
-`FRONTEND_BASE_URL=https://running-club-assistant.vercel.app`. Add the Langfuse
-project settings to enable production traces. Keep secrets on Render.
+`FRONTEND_BASE_URL=https://running-club-assistant.vercel.app`. Keep
+`AI_PROVIDER=openai` and `EMBEDDING_PROVIDER=openai` for the hosted service.
+Add the Langfuse project settings to enable production traces. Keep secrets on
+Render.
 
 **Apply migrations before starting code that depends on a changed schema.**
-The Uvicorn start command above does not run Alembic. Where a pre-deploy command
-is available, use `alembic upgrade head`. Otherwise, apply migrations manually
-against the production database before deploying the new backend. For local
-migration commands, use Render's external database connection with TLS; its
-internal hostname is for services on Render's private network.
+The start command above runs Alembic first and starts Uvicorn only if migration
+succeeds. This suits the current single-instance free service. On a paid service,
+use a pre-deploy command of `alembic upgrade head` and a Uvicorn-only start command.
+For manual migration commands, use Render's external database connection with
+TLS; its internal hostname is for services on Render's private network.
 
 Use backward-compatible migrations when old and new versions overlap during a
 deploy. Deploying code without its required migration can break plan queries.
 See [Render's FastAPI guide](https://render.com/docs/deploy-fastapi) and
 [deployment commands](https://render.com/docs/deploys#pre-deploy-command).
+The [OpenAI/Ollama production rollout](docs/PRODUCTION_ROLLOUT.md) covers migration
+checks, deployment verification, and rollback for this provider change.
 
 ### Next.js on Vercel
 
