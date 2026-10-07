@@ -1,5 +1,12 @@
 # Running Club Assistant: System Flow Notes
 
+**Embedding storage update:** Indexing and retrieval now select OpenAI or
+Ollama through `embedding_service.py`. Vectors live in provider-specific tables,
+and unchanged chunks survive indexing. The detailed Group 1 descriptions below
+of full chunk replacement and the legacy chunk vector column describe the
+original OpenAI implementation. See [Local models](LOCAL_MODELS.md) for the
+current indexing behavior and setup. Generation still uses OpenAI.
+
 This is the end-to-end map to read before changing the application. It records
 what the current code actually does, not a proposed architecture. Start with
 the big picture, then jump to the workflow you are changing.

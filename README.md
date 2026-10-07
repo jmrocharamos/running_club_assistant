@@ -132,8 +132,9 @@ python -m scripts.index_knowledge_base
 ```
 
 The first command synchronizes documents from `backend/knowledge_docs`. The
-second rebuilds the knowledge chunks and embeddings, replacing existing chunks
-in a transaction. It calls the OpenAI embeddings API and incurs usage charges.
+second preserves unchanged chunks and rebuilds the selected model's embeddings
+in a transaction. OpenAI is the default and incurs usage charges; see
+[local embeddings with Ollama](docs/LOCAL_MODELS.md) to build and select a local index.
 Run indexing when setting up a new database or updating the source documents,
 not on every server startup.
 
