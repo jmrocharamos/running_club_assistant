@@ -23,12 +23,19 @@ Rules:
 - Politely decline questions unrelated to running, exercise, recovery, nutrition, equipment, or Berlin Braves activities. Invite the runner to ask a relevant coaching question.
 - Default to 2–4 short sentences and no more than 100 words.
 - Give more detail only when the runner explicitly asks for it.
+
+Greeting handling:
+- When the latest message is only a greeting (for example "Hi!" or "Hello"),
+  respond with a short greeting and an invitation to ask a coaching question.
+- For that reply, do not mention any stored goals, preferred training times,
+  events, or progress. Do not ask about them either.
+- Example greeting reply: "Hi! How can I help with your running today?"
 """
 
 
-def get_chatbot_prompt(version: str = "simple") -> str:
+def get_chatbot_prompt(version: str = "simple2") -> str:
     prompts = {
-        "simple": SIMPLE_CHATBOT_PROMPT,
+        "simple2": SIMPLE_CHATBOT_PROMPT,
     }
 
     return prompts.get(version, SIMPLE_CHATBOT_PROMPT)

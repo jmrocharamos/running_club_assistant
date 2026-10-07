@@ -94,6 +94,7 @@ frontend/.env.*
 *.bak
 *.tmp
 *.temp
+backend/evaluation/results/
 AGENTS.md
 
 # Private club operational workbooks

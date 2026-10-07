@@ -1,6 +1,9 @@
-from app.services.telemetry import traced
+import json
 
-from app.client_openai import (
+from app.services.telemetry import traced, trace_step
+from app.services.plan_calendar_service import validate_plan_calendar
+
+from app.services.ai_service import (
     get_recommendation,
     get_training_safety_assessment,
 )
@@ -23,7 +26,7 @@ from app.services.running_plan_service import (
 @traced("assess_training_safety", kind="guardrail")
 def assess_training_safety(
     survey,
-    prompt_version="safety1",
+    prompt_version="safety2",
 ):
     """Choose a plan mode, bypassing the model when no pain or issue is reported."""
     answers = survey.get("answers") or {}
@@ -166,24 +169,31 @@ def generate_recommendation(
         plan_mode,
     )
 
-    recommendation = get_recommendation(
-        input_text,
-        instructions,
-        prompt_version,
-        plan_mode=plan_mode,
-    )
-
-    recommendation = synchronize_weekly_distances(
-        recommendation
-    )
-
     cleared_activities = (
         (survey.get("answers") or {}).get("medically_cleared_activities")
         or []
     )
 
-    return validate_plan_mode(
-        recommendation,
-        plan_mode,
-        cleared_activities,
-    )
+    generation_input = input_text
+    for attempt in range(2):
+        with trace_step(
+            "Plan correction" if attempt else "Plan generation",
+            metadata={"attempt": attempt + 1},
+            tags=("correction-retry",) if attempt else None,
+        ):
+            recommendation = get_recommendation(
+                generation_input, instructions, prompt_version, plan_mode=plan_mode,
+            )
+        try:
+            synchronize_weekly_distances(recommendation)
+            validate_plan_mode(recommendation, plan_mode, cleared_activities)
+            return validate_plan_calendar(recommendation, survey, plan_mode)
+        except ValueError as error:
+            if attempt == 1:
+                raise
+            generation_input = (
+                input_text + "\n\nPREVIOUS OUTPUT TO CORRECT\n"
+                + json.dumps(recommendation, ensure_ascii=False)
+                + "\n\nVALIDATION FAILURE\n" + str(error)
+                + "\nReturn a corrected complete plan following the authoritative calendar and original constraints."
+            )

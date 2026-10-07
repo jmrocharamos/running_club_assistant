@@ -1,4 +1,4 @@
-FEEDBACK_SAFETY_PROMPT_V4 = """
+FEEDBACK_SAFETY_PROMPT_V5 = """
 You route running-plan feedback through the correct safety path.
 Do not diagnose, prescribe treatment, or generate a training plan.
 
@@ -33,6 +33,10 @@ as missing or malformed.
 
 If required values are missing, malformed, ambiguous, or contradictory, return
 needs_health_update with plan_mode null.
+This completeness check comes before the complete-health-update rules below.
+Free-text swelling or other symptoms without a complete HEALTH_UPDATE_V1
+must pause for needs_health_update, rather than claim a completed coach-review
+assessment. Never continue revision in either paused path.
 
 For a complete health update:
 
@@ -70,10 +74,10 @@ Date handling:
 
 
 def get_feedback_safety_prompt(
-        version: str = "safety4",
+        version: str = "safety5",
 ) -> str:
     prompts = {
-        "safety4": FEEDBACK_SAFETY_PROMPT_V4,
+        "safety5": FEEDBACK_SAFETY_PROMPT_V5,
     }
 
     if version not in prompts:

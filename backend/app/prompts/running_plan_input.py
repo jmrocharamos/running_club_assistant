@@ -1,4 +1,5 @@
 import json
+from app.services.plan_calendar_service import build_plan_calendar
 
 
 def build_training_safety_input(survey):
@@ -44,6 +45,12 @@ def build_running_plan_input(user, survey, plan_mode):
         answers.get("medically_cleared_activities") or []
     ) or "not provided"
 
+    calendar = build_plan_calendar(
+        plan_start_date, answers["plan_duration_weeks"],
+        answers["preferred_training_days"],
+        answers.get("target_event_date") if plan_mode == "normal_running" else None,
+    )
+
     long_run_day = (
         answers.get("preferred_long_run_day") or "none (no dedicated long run)"
     )
@@ -88,6 +95,16 @@ def build_running_plan_input(user, survey, plan_mode):
 
     Main preference: {answers.get("main_preference")}
     Recommendation detail level: {answers.get("detail_level")}
+
+    AUTHORITATIVE CALENDAR
+
+    {json.dumps(calendar)}
+
+    Copy the weekly boundaries and week numbers exactly. Schedule sessions only
+    on available_training_days from this calendar, using its dates and lowercase
+    weekday labels. An adapted plan may use fewer available days, but must never
+    add another weekday or date. Include all numbered weeks even when some
+    available days have no session.
 
     Create a safe and personalized running plan using the user information
     and survey answers above.

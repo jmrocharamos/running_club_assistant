@@ -2,7 +2,8 @@
 
 An AI-assisted running coach with personalized training plans, feedback-driven
 revisions, and a conversational coach grounded in club knowledge. Built with
-Next.js, FastAPI, PostgreSQL, and OpenAI, with Langfuse tracing for AI workflows.
+Next.js, FastAPI, PostgreSQL, and selectable OpenAI or local Ollama models,
+with Langfuse tracing for AI workflows.
 
 **[Open the app](https://running-club-assistant.vercel.app)** ·
 **[API documentation](https://running-club-assistant-api.onrender.com/docs)**
@@ -27,6 +28,7 @@ flowchart LR
     Frontend -->|/api forwarding| Backend[FastAPI backend · Render]
     Backend --> DB[(PostgreSQL + pgvector · Render)]
     Backend --> OpenAI[OpenAI · generation and embeddings]
+    Backend --> Ollama[Ollama · optional local generation and embeddings]
     Backend --> Langfuse[Langfuse · traces, usage and ratings]
 ```
 
@@ -43,7 +45,7 @@ machine. The local Compose file does not deploy the application servers.
 | Forms and server state | React Hook Form, Zod, TanStack Query |
 | Backend | Python, FastAPI, Pydantic, SQLAlchemy, Alembic |
 | Database and retrieval | PostgreSQL, pgvector, LangChain text splitting |
-| AI | OpenAI structured responses and embeddings |
+| AI | Selectable OpenAI or Ollama structured responses and embeddings |
 | Observability | Langfuse workflow traces, tags, token usage, and plan-rating scores |
 
 ## Run locally
@@ -53,7 +55,7 @@ machine. The local Compose file does not deploy the application servers.
 - Python 3.12 (the local development version)
 - Node.js 22 LTS and npm
 - Docker with Docker Compose
-- An OpenAI API key for generation, chat, and embedding calls
+- An OpenAI API key for OpenAI operations, or Ollama with local models
 - A Langfuse project if you want tracing (optional)
 
 ### 1. Set up the backend
@@ -137,6 +139,10 @@ in a transaction. OpenAI is the default and incurs usage charges; see
 [local embeddings with Ollama](docs/LOCAL_MODELS.md) to build and select a local index.
 Run indexing when setting up a new database or updating the source documents,
 not on every server startup.
+
+Generation can also use Ollama: set `AI_PROVIDER=ollama` and
+`OLLAMA_MODEL=qwen3.5:9b` in the backend environment and restart the API.
+`EMBEDDING_PROVIDER` is independent. See [local AI setup and evaluations](docs/LOCAL_MODELS.md).
 
 ## Tests and checks
 

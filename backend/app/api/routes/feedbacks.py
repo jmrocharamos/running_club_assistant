@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.client_openai import get_recommendation
+from app.services.ai_service import get_recommendation
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.recommendation import Recommendation
