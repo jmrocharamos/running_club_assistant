@@ -6,7 +6,7 @@ from app.core.security import get_current_user
 from app.services.coach_context_service import build_coach_context
 from app.services.coach_memory_manager import get_or_create_coach_memory
 from app.services.knowledge_retrieval_service import retrieve_knowledge
-from app.client_openai import get_chat_reply, summarize_conversation
+from app.services.ai_service import get_chat_reply, summarize_conversation
 from app.db.session import get_db
 from app.models.user import User
 from app.prompts.chatbot_input import build_chatbot_input, build_conversation_summary_input
@@ -69,7 +69,7 @@ def chat_with_coach(
         result = get_chat_reply(
             input_text,
             instructions,
-            "simple",
+            "simple2",
         )
     except Exception as error:
         raise HTTPException(

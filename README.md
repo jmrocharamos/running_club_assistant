@@ -2,7 +2,8 @@
 
 An AI-assisted running coach with personalized training plans, feedback-driven
 revisions, and a conversational coach grounded in club knowledge. Built with
-Next.js, FastAPI, PostgreSQL, and OpenAI, with Langfuse tracing for AI workflows.
+Next.js, FastAPI, PostgreSQL, and selectable OpenAI or local Ollama models,
+with Langfuse tracing for AI workflows.
 
 **[Open the app](https://running-club-assistant.vercel.app)** ·
 **[API documentation](https://running-club-assistant-api.onrender.com/docs)**
@@ -27,6 +28,7 @@ flowchart LR
     Frontend -->|/api forwarding| Backend[FastAPI backend · Render]
     Backend --> DB[(PostgreSQL + pgvector · Render)]
     Backend --> OpenAI[OpenAI · generation and embeddings]
+    Backend --> Ollama[Ollama · optional local generation and embeddings]
     Backend --> Langfuse[Langfuse · traces, usage and ratings]
 ```
 
@@ -43,7 +45,7 @@ machine. The local Compose file does not deploy the application servers.
 | Forms and server state | React Hook Form, Zod, TanStack Query |
 | Backend | Python, FastAPI, Pydantic, SQLAlchemy, Alembic |
 | Database and retrieval | PostgreSQL, pgvector, LangChain text splitting |
-| AI | OpenAI structured responses and embeddings |
+| AI | Selectable OpenAI or Ollama structured responses and embeddings |
 | Observability | Langfuse workflow traces, tags, token usage, and plan-rating scores |
 
 ## Run locally
@@ -53,7 +55,7 @@ machine. The local Compose file does not deploy the application servers.
 - Python 3.12 (the local development version)
 - Node.js 22 LTS and npm
 - Docker with Docker Compose
-- An OpenAI API key for generation, chat, and embedding calls
+- An OpenAI API key for OpenAI operations, or Ollama with local models
 - A Langfuse project if you want tracing (optional)
 
 ### 1. Set up the backend
@@ -132,10 +134,15 @@ python -m scripts.index_knowledge_base
 ```
 
 The first command synchronizes documents from `backend/knowledge_docs`. The
-second rebuilds the knowledge chunks and embeddings, replacing existing chunks
-in a transaction. It calls the OpenAI embeddings API and incurs usage charges.
+second preserves unchanged chunks and rebuilds the selected model's embeddings
+in a transaction. OpenAI is the default and incurs usage charges; see
+[local embeddings with Ollama](docs/LOCAL_MODELS.md) to build and select a local index.
 Run indexing when setting up a new database or updating the source documents,
 not on every server startup.
+
+Generation can also use Ollama: set `AI_PROVIDER=ollama` and
+`OLLAMA_MODEL=qwen3.5:9b` in the backend environment and restart the API.
+`EMBEDDING_PROVIDER` is independent. See [local AI setup and evaluations](docs/LOCAL_MODELS.md).
 
 ## Tests and checks
 
@@ -181,26 +188,30 @@ pgvector in the same region. No application Dockerfile is required.
 | Root directory | `backend` |
 | Runtime | Python 3 |
 | Build command | `pip install -r requirements.txt` |
-| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Start command | `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | Health-check path | `/` (application liveness only) |
 
 Set `DATABASE_URL` to Render's **internal** database URL, using the
 `postgresql+psycopg://` prefix. Configure `OPENAI_API_KEY`, a production
 `JWT_SECRET_KEY`, `ENVIRONMENT=production`, and
-`FRONTEND_BASE_URL=https://running-club-assistant.vercel.app`. Add the Langfuse
-project settings to enable production traces. Keep secrets on Render.
+`FRONTEND_BASE_URL=https://running-club-assistant.vercel.app`. Keep
+`AI_PROVIDER=openai` and `EMBEDDING_PROVIDER=openai` for the hosted service.
+Add the Langfuse project settings to enable production traces. Keep secrets on
+Render.
 
 **Apply migrations before starting code that depends on a changed schema.**
-The Uvicorn start command above does not run Alembic. Where a pre-deploy command
-is available, use `alembic upgrade head`. Otherwise, apply migrations manually
-against the production database before deploying the new backend. For local
-migration commands, use Render's external database connection with TLS; its
-internal hostname is for services on Render's private network.
+The start command above runs Alembic first and starts Uvicorn only if migration
+succeeds. This suits the current single-instance free service. On a paid service,
+use a pre-deploy command of `alembic upgrade head` and a Uvicorn-only start command.
+For manual migration commands, use Render's external database connection with
+TLS; its internal hostname is for services on Render's private network.
 
 Use backward-compatible migrations when old and new versions overlap during a
 deploy. Deploying code without its required migration can break plan queries.
 See [Render's FastAPI guide](https://render.com/docs/deploy-fastapi) and
 [deployment commands](https://render.com/docs/deploys#pre-deploy-command).
+The [OpenAI/Ollama production rollout](docs/PRODUCTION_ROLLOUT.md) covers migration
+checks, deployment verification, and rollback for this provider change.
 
 ### Next.js on Vercel
 

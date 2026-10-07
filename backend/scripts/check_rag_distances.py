@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from app.client_openai import create_embeddings
+from app.services.embedding_service import create_query_embedding, get_embedding_index
 from app.db.session import SessionLocal, engine
 from app.models.knowledge_base import KnowledgeBase
 from app.models.knowledge_chunk import KnowledgeChunk
@@ -18,12 +18,14 @@ TEST_QUERIES = [
 
 def main() -> None:
     engine.echo = False
+    storage, model = get_embedding_index()
+    print(f"Embedding model: {model}; table: {storage.__tablename__}")
 
     with SessionLocal() as db:
         for query in TEST_QUERIES:
-            query_embedding = create_embeddings([query])[0]
+            query_embedding = create_query_embedding(query)
 
-            distance = KnowledgeChunk.embedding.cosine_distance(
+            distance = storage.embedding.cosine_distance(
                 query_embedding,
             ).label("distance")
 
@@ -33,11 +35,14 @@ def main() -> None:
                     KnowledgeChunk.chunk_index,
                     distance,
                 )
+                .select_from(KnowledgeChunk)
+                .join(storage, storage.chunk_id == KnowledgeChunk.id)
                 .join(
                     KnowledgeBase,
                     KnowledgeChunk.knowledge_base_id
                     == KnowledgeBase.id,
                 )
+                .where(storage.model == model)
                 .order_by(distance)
                 .limit(5)
             ).all()

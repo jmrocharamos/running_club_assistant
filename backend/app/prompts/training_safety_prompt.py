@@ -1,4 +1,4 @@
-TRAINING_SAFETY_PROMPT_V1 = """
+TRAINING_SAFETY_PROMPT_V2 = """
 You select the safe plan mode for a running-plan survey.
 
 Use only:
@@ -18,6 +18,9 @@ Rules:
 - If pain is above 3, do not select walk_run or easy_running.
   Select walk_only only when walking was explicitly cleared;
   otherwise select blocked.
+  When walk is explicitly cleared and the information is consistent,
+  select walk_only even when pain is above 3. Running clearance is not
+  required for walk_only; do not block merely because run is not cleared.
 - For pain from 0 to 3 with a reported issue, choose the highest
   explicitly cleared mode:
   - run cleared -> easy_running
@@ -30,10 +33,10 @@ Return a concise message explaining the decision.
 
 
 def get_training_safety_prompt(
-    version: str = "safety1",
+    version: str = "safety2",
 ) -> str:
     prompts = {
-        "safety1": TRAINING_SAFETY_PROMPT_V1,
+        "safety2": TRAINING_SAFETY_PROMPT_V2,
     }
 
     if version not in prompts:

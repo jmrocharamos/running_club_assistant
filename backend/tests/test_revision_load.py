@@ -19,7 +19,7 @@ def make_plan(counts, distances):
                           end_date=(monday + timedelta(days=6)).isoformat(), distance_km=distance))
         for slot in range(2):
             day = monday + timedelta(days=slot * 4)
-            days.append(dict(week_number=index + 1, date=day.isoformat(), day=day.strftime('%A'), running=None,
+            days.append(dict(week_number=index + 1, date=day.isoformat(), day=day.strftime('%A').lower(), running=None,
                              walking=dict(type='walk_run', distance_km=distance / count,
                                           duration_minutes=30) if slot < count else None,
                              strength=dict(duration_minutes=15), mobility=dict(duration_minutes=6)))

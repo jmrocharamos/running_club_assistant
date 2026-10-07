@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Text, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,10 +38,13 @@ class KnowledgeChunk(Base):
         nullable=False,
     )
 
-    embedding: Mapped[list[float]] = mapped_column(
+    # Retained during migration; retrieval uses provider embedding tables.
+    embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
-        nullable=False,
+        nullable=True,
     )
+
+    embedding_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     metadata_: Mapped[dict[str, Any] | None] = mapped_column(
         "metadata",

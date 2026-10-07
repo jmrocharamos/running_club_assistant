@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.client_openai import create_embeddings
+from app.services.embedding_service import create_query_embedding, get_embedding_index
 from app.models.knowledge_base import KnowledgeBase
 from app.models.knowledge_chunk import KnowledgeChunk
 
@@ -30,9 +30,10 @@ def retrieve_knowledge(
     if limit < 1:
         raise ValueError("Retrieval limit must be at least 1")
 
-    query_embedding = create_embeddings([clean_query])[0]
+    storage, model = get_embedding_index()
+    query_embedding = create_query_embedding(clean_query)
 
-    distance = KnowledgeChunk.embedding.cosine_distance(
+    distance = storage.embedding.cosine_distance(
         query_embedding,
     ).label("distance")
 
@@ -42,11 +43,13 @@ def retrieve_knowledge(
             KnowledgeBase,
             distance,
         )
+        .select_from(KnowledgeChunk)
+        .join(storage, storage.chunk_id == KnowledgeChunk.id)
         .join(
             KnowledgeBase,
             KnowledgeChunk.knowledge_base_id == KnowledgeBase.id,
         )
-        .where(distance <= MAX_COSINE_DISTANCE)
+        .where(storage.model == model, distance <= MAX_COSINE_DISTANCE)
         .order_by(distance)
         .limit(limit)
     ).all()

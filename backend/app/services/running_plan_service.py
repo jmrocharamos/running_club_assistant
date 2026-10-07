@@ -39,7 +39,7 @@ def calculate_weekly_distance_totals(
 def synchronize_weekly_distances(
         recommendation: dict,
 ) -> dict:
-    """Sort sessions and replace weekly distance totals in place; return the same plan."""
+    """Sort sessions, derive weekday labels, and replace weekly distance totals."""
     content = recommendation["content"]
     training_days = content.get("training_days", [])
 
@@ -49,6 +49,8 @@ def synchronize_weekly_distances(
     # display, or the revision flow's date-consistency check -- needs a
     # guaranteed date order rather than trusting generation order.
     training_days.sort(key=lambda day: day["date"])
+    for day in training_days:
+        day["day"] = date.fromisoformat(day["date"]).strftime("%A").lower()
 
     totals_by_week = calculate_weekly_distance_totals(
         training_days
