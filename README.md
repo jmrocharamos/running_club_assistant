@@ -26,7 +26,7 @@ with Langfuse tracing for AI workflows.
 flowchart LR
     Browser[Runner's browser] --> Frontend[Next.js frontend · Vercel]
     Frontend -->|/api forwarding| Backend[FastAPI backend · Render]
-    Backend --> DB[(PostgreSQL + pgvector · Render)]
+    Backend --> DB[(PostgreSQL + pgvector · Neon)]
     Backend --> OpenAI[OpenAI · generation and embeddings]
     Backend --> Ollama[Ollama · optional local generation and embeddings]
     Backend --> Langfuse[Langfuse · traces, usage and ratings]
@@ -178,10 +178,11 @@ See [frontend reliability checks](frontend/tests/README.md) and
 
 ## Deployment
 
-### FastAPI and PostgreSQL on Render
+### FastAPI on Render and PostgreSQL on Neon
 
-The backend uses Render's native Python runtime, with managed PostgreSQL and
-pgvector in the same region. No application Dockerfile is required.
+The backend uses Render's native Python runtime. PostgreSQL and pgvector run on
+Neon in Frankfurt, matching the backend region. No application Dockerfile is
+required.
 
 | Setting | Value |
 | --- | --- |
@@ -191,8 +192,13 @@ pgvector in the same region. No application Dockerfile is required.
 | Start command | `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | Health-check path | `/` (application liveness only) |
 
-Set `DATABASE_URL` to Render's **internal** database URL, using the
-`postgresql+psycopg://` prefix. Configure `OPENAI_API_KEY`, a production
+Set `DATABASE_URL` on Render to Neon's **direct (unpooled)** connection URL,
+using the `postgresql+psycopg://` prefix and retaining `sslmode=require`.
+The current startup command runs Alembic and the API with the same URL, so it
+needs a direct connection. SQLAlchemy checks connections in its application pool
+before reuse to recover from disconnected idle sessions.
+
+Configure `OPENAI_API_KEY`, a production
 `JWT_SECRET_KEY`, `ENVIRONMENT=production`, and
 `FRONTEND_BASE_URL=https://running-club-assistant.vercel.app`. Keep
 `AI_PROVIDER=openai` and `EMBEDDING_PROVIDER=openai` for the hosted service.
@@ -203,8 +209,8 @@ Render.
 The start command above runs Alembic first and starts Uvicorn only if migration
 succeeds. This suits the current single-instance free service. On a paid service,
 use a pre-deploy command of `alembic upgrade head` and a Uvicorn-only start command.
-For manual migration commands, use Render's external database connection with
-TLS; its internal hostname is for services on Render's private network.
+For manual migration commands, use the same direct Neon connection with TLS.
+Do not use a `-pooler` hostname for Alembic migrations.
 
 Use backward-compatible migrations when old and new versions overlap during a
 deploy. Deploying code without its required migration can break plan queries.
@@ -228,7 +234,9 @@ after changing the API URL configuration. The [frontend guide](frontend/README.m
 explains forwarding and login verification.
 
 Local and production databases are separate. Deploying code or running migrations
-does not copy accounts, plans, or embeddings between them.
+does not copy accounts, plans, or embeddings between them. See the
+[Neon migration record](docs/NEON_MIGRATION.md) for the hosting move completed
+on 14 October 2026.
 
 ## Observability
 

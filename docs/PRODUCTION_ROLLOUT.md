@@ -117,9 +117,9 @@ behavior is not a reason to remove production embedding data.
 - The provider-settings deployment of the existing `main` commit became live.
   API and frontend liveness requests returned HTTP 200.
 
-The Render database currently reports an expiration date of 14 October 2026.
-Address its retention or hosting plan separately before that date; this code
-merge does not change the database's expiration.
+The Render database reported an expiration date of 14 October 2026. Production
+was migrated to Neon on that date before expiration; see
+[the Neon migration record](NEON_MIGRATION.md). The backend remains on Render.
 
 See [local AI evaluation evidence and limits](LOCAL_AI_EVALUATION.md) for the
 model-quality checks completed during implementation.
