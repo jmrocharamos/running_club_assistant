@@ -60,11 +60,12 @@ def sample_answers():
     }).model_dump(mode="json")
 
 
-def start(db, client_host):
+def start(db, browser_id):
     if not DEMO_ENABLED:
         raise HTTPException(503, "The demo is not enabled right now.")
-    # Use the server's client address, never a caller-supplied forwarded header.
-    digest = hmac.new(JWT_SECRET_KEY.encode(), (client_host or "unknown").encode(), hashlib.sha256).hexdigest()
+    # The route validates a signed browser marker. Proxy addresses are shared
+    # by unrelated visitors, so they cannot identify an individual browser.
+    digest = hmac.new(JWT_SECRET_KEY.encode(), browser_id.encode(), hashlib.sha256).hexdigest()
     db.execute(text("SELECT pg_advisory_xact_lock(19711, 1)"))
     since = (now() - timedelta(hours=1)).isoformat()
     rows = db.scalars(select(CoachMemory.summary).where(

@@ -29,11 +29,12 @@ fails validation and consumes the attempt; it is not silently retried.
 Usage is reserved under a database advisory lock before endpoint work and
 committed before the AI call, so errors cannot repeatedly refund attempts.
 Non-status protected requests are also capped at 250 per session. Starting demos
-is limited to three per server-observed client address per hour, 20 total starts
-per hour and five concurrently active sessions. Only an HMAC of the address is
-stored. Requests do not trust arbitrary forwarded-IP headers. Visitors behind
-the same deployment proxy may share a limit; test proxy behavior before public
-rollout. These limits bound access, not a monetary billing cap or bot-proof
+is limited to three per browser per hour, 20 total starts per hour and five
+concurrently active sessions. A signed, HttpOnly `demo_browser` cookie identifies
+the browser; only an HMAC of its random identifier is stored in the database.
+It cannot authenticate a user. This avoids grouping unrelated visitors behind
+the website's deployment proxy. Clearing cookies can reset the per-browser
+limit, but the global limits still apply. These limits bound access, not a monetary billing cap or bot-proof
 identity check. Account creation remains a separate existing app flow.
 
 While demo mode is enabled and the API is running, housekeeping runs at startup

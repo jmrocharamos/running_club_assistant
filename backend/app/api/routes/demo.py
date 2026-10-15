@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from uuid import UUID, uuid4
 
 import jwt
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
@@ -12,6 +13,19 @@ from app.schemas.user import UserRead
 from app.services import demo_session_service as demos
 
 router = APIRouter(prefix="/demo", tags=["Demo"])
+BROWSER_COOKIE_NAME = "demo_browser"
+
+
+def browser_identity(request: Request) -> str:
+    """Identify a browser without grouping everyone behind a deployment proxy."""
+    try:
+        payload = jwt.decode(request.cookies.get(BROWSER_COOKIE_NAME, ""), JWT_SECRET_KEY,
+                             algorithms=[JWT_ALGORITHM], options={"require": ["exp", "kind", "nonce"]})
+        if payload["kind"] == "demo_browser":
+            return UUID(payload["nonce"]).hex
+    except (jwt.InvalidTokenError, ValueError, TypeError, AttributeError):
+        pass
+    return uuid4().hex
 
 
 @router.get('/config')
@@ -36,7 +50,15 @@ def start_demo(request: Request, response: Response, db: Session = Depends(get_d
             user.is_demo = True
             user.demo_expires_at = demo['expires_at']
             return user
-    user, demo = demos.start(db, request.client.host if request.client else None)
+    visitor = browser_identity(request)
+    user, demo = demos.start(db, visitor)
+    # This marker only identifies a browser for start limits; it has no user
+    # subject and cannot authenticate. Renew it across the rolling hour window.
+    browser_token = jwt.encode({"kind": "demo_browser", "nonce": visitor,
+                                "exp": demos.now() + timedelta(hours=1)},
+                               JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    response.set_cookie(BROWSER_COOKIE_NAME, browser_token, max_age=3600, httponly=True,
+                        secure=IS_PRODUCTION, samesite='lax', path='/')
     expires = datetime.fromisoformat(demo['expires_at'])
     token = jwt.encode({"sub": str(user.id), "kind": "demo", "iat": demos.now(), "exp": expires}, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     response.set_cookie(AUTH_COOKIE_NAME, token, max_age=900, httponly=True, secure=IS_PRODUCTION, samesite='lax', path='/')

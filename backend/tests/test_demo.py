@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select
 
 from app.api.routes import chatbot, recommendations, feedbacks
+from app.api.routes.demo import BROWSER_COOKIE_NAME
 from app.core.config import JWT_ALGORITHM, JWT_SECRET_KEY
 from app.models.coach_memory import CoachMemory
 from app.models.survey import Survey
@@ -104,11 +105,45 @@ def test_expiry_checks_database_and_cleanup_only_removes_demo_data(client, secon
 def test_rate_limits_flag_and_signed_expiry(client, monkeypatch):
     for _ in range(3):
         start(client)
-        client.cookies.clear()
+        assert client.post('/auth/logout').status_code == 200
     assert client.post('/demo/start').status_code == 429
     monkeypatch.setattr(demos, 'DEMO_ENABLED', False)
     assert not client.get('/demo/config').json()['enabled']
     assert client.post('/demo/start').status_code == 503
+
+
+def test_start_limits_separate_browsers_behind_the_same_proxy(client, second_client):
+    # Both TestClients have the same server-observed host, as on a reverse proxy.
+    for _ in range(3):
+        start(client)
+        assert client.post('/auth/logout').status_code == 200
+    assert client.post('/demo/start').status_code == 429
+    start(second_client)
+    assert second_client.cookies[BROWSER_COOKIE_NAME] != client.cookies[BROWSER_COOKIE_NAME]
+
+
+def test_browser_marker_is_signed_and_cannot_authenticate(client):
+    start(client)
+    marker = client.cookies[BROWSER_COOKIE_NAME]
+    client.cookies.clear()
+    client.cookies.set('access_token', marker)
+    assert client.get('/auth/me').status_code == 401
+    client.cookies.clear()
+    forged = jwt.encode({'kind': 'demo_browser', 'nonce': '0' * 32,
+                         'exp': demos.now() + timedelta(hours=1)}, 'untrusted-key', algorithm=JWT_ALGORITHM)
+    client.cookies.set(BROWSER_COOKIE_NAME, forged, domain='testserver.local', path='/')
+    start(client)
+    payload = jwt.decode(client.cookies[BROWSER_COOKIE_NAME], JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    assert payload['nonce'] != '0' * 32
+
+
+def test_global_active_limit_still_applies_to_distinct_browsers(client):
+    for _ in range(5):
+        start(client)
+        client.cookies.clear()
+    response = client.post('/demo/start')
+    assert response.status_code == 429
+    assert 'places are in use' in response.json()['detail']
 
 
 def test_registered_user_not_replaced_and_demo_forces_openai(client, monkeypatch):
