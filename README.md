@@ -144,6 +144,14 @@ Generation can also use Ollama: set `AI_PROVIDER=ollama` and
 `OLLAMA_MODEL=qwen3.5:9b` in the backend environment and restart the API.
 `EMBEDDING_PROVIDER` is independent. See [local AI setup and evaluations](docs/LOCAL_MODELS.md).
 
+## Anonymous demo
+
+Set `DEMO_ENABLED=true` in the backend environment, restart the API, and open
+`/demo` on the frontend. Visitors receive an isolated 15-minute sample workspace
+with five chat messages, one plan attempt, one revision attempt, and one chat
+summary. The demo uses OpenAI and is disabled by default. See
+[demo setup, limits and cleanup](docs/DEMO.md) before enabling public access.
+
 ## Tests and checks
 
 Backend tests use a separate local database named `running_club_test`. Create it
