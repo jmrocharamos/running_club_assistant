@@ -33,6 +33,8 @@ def create_survey(
         if isinstance(survey_data.answers, BaseModel)
         else survey_data.answers
     )
+    if getattr(current_user, "is_demo", False) and answers.get("plan_duration_weeks", 0) > 4:
+        raise HTTPException(400, "Demo plans are limited to four weeks.")
 
     survey = Survey(
         user_id=current_user.id,

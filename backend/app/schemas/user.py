@@ -17,6 +17,8 @@ class UserUpdate(BaseModel):
 
 
 class UserRead(BaseModel):
+    is_demo: bool = False
+    demo_expires_at: str | None = None
     id: UUID
     username: str
     full_name: str

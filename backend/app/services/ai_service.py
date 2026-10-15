@@ -9,10 +9,12 @@ from app.schemas.feedback_revision import FeedbackSafetyAssessment
 
 
 def _client():
-    if AI_PROVIDER not in {"openai", "ollama"}:
+    from app.core.request_context import demo_deadline
+    provider = "openai" if demo_deadline.get() is not None else AI_PROVIDER
+    if provider not in {"openai", "ollama"}:
         raise ValueError(f"Unsupported AI provider: {AI_PROVIDER}")
     # Local inference never initializes the OpenAI client or requires its key.
-    return import_module(f"app.client_{AI_PROVIDER}")
+    return import_module(f"app.client_{provider}")
 
 
 def get_chat_reply(input_text: str, instructions: str, prompt_version: str) -> dict:

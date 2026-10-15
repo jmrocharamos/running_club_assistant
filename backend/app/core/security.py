@@ -66,10 +66,14 @@ def decode_access_token(token: str) -> UUID:
             detail="Invalid session",
         )
 
-    return UUID(subject)
+    try:
+        return UUID(subject)
+    except (ValueError, TypeError, AttributeError) as error:
+        raise HTTPException(401, "Invalid session") from error
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
+    response.delete_cookie("demo_expires_at", path="/", secure=IS_PRODUCTION, samesite="lax")
     response.set_cookie(
         key=AUTH_COOKIE_NAME,
         value=token,
@@ -99,12 +103,21 @@ def get_current_user(
     token = request.cookies.get(AUTH_COOKIE_NAME)
 
     if not token:
+        if request.cookies.get("demo_expires_at"):
+            from app.services.demo_session_service import expired
+            raise expired()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
 
-    user_id = decode_access_token(token)
+    try:
+        user_id = decode_access_token(token)
+    except HTTPException:
+        if request.cookies.get("demo_expires_at"):
+            from app.services.demo_session_service import expired
+            raise expired()
+        raise
     user = db.get(User, user_id)
 
     if not user:
@@ -113,6 +126,12 @@ def get_current_user(
             detail="Not authenticated",
         )
 
+    from app.services import demo_session_service as demos
+    demo = demos.authorize(db, user, request.method, request.url.path)
+    if demo is not None:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if payload.get("kind") != "demo":
+            raise HTTPException(401, "Invalid demo session")
     return user
 
 

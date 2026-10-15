@@ -28,6 +28,7 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserRead
 from app.services.email_sender import EmailSender, get_email_sender
+from app.services.demo_session_service import metadata as demo_metadata
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -79,7 +80,7 @@ def login(
 ):
     user = db.scalar(select(User).where(User.email == login_data.email))
 
-    if not user or not verify_password(login_data.password, user.password_hash):
+    if not user or demo_metadata(db, user.id) is not None or not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -114,7 +115,7 @@ def forgot_password(
     """Issue a reset link for known users and return the same message for every email."""
     user = db.scalar(select(User).where(User.email == forgot_data.email))
 
-    if user:
+    if user and demo_metadata(db, user.id) is None:
         raw_token, token_hash = generate_reset_token()
         reset_token = PasswordResetToken(
             user_id=user.id,

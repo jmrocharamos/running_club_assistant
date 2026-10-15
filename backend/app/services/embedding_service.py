@@ -5,15 +5,20 @@ import math
 from app.core.config import EMBEDDING_PROVIDER, OLLAMA_EMBEDDING_MODEL
 
 
+def active_provider():
+    from app.core.request_context import demo_deadline
+    return "openai" if demo_deadline.get() is not None else EMBEDDING_PROVIDER
+
+
 def get_embedding_index():
     """Return the selected storage model and exact embedding model identity."""
     from app.models.knowledge_embedding import (
         KnowledgeEmbeddingOpenAI, KnowledgeEmbeddingOllama,
     )
 
-    if EMBEDDING_PROVIDER == "openai":
+    if active_provider() == "openai":
         return KnowledgeEmbeddingOpenAI, "text-embedding-3-small"
-    if EMBEDDING_PROVIDER == "ollama":
+    if active_provider() == "ollama":
         return KnowledgeEmbeddingOllama, OLLAMA_EMBEDDING_MODEL
     raise ValueError(f"Unsupported embedding provider: {EMBEDDING_PROVIDER}")
 
@@ -21,7 +26,7 @@ def get_embedding_index():
 def create_query_embedding(query: str) -> list[float]:
     """Apply Qwen's retrieval instruction to queries, never to documents."""
     storage, model = get_embedding_index()
-    if EMBEDDING_PROVIDER == "ollama" and model.startswith("qwen3-embedding"):
+    if active_provider() == "ollama" and model.startswith("qwen3-embedding"):
         query = (
             "Instruct: Given a running club question, retrieve relevant passages "
             "that answer the question\nQuery: " + query
@@ -42,9 +47,9 @@ def create_embeddings(
     Matching dimensions alone does not prove index/model compatibility; each
     embedding model must use its own rebuilt index.
     """
-    if EMBEDDING_PROVIDER == "openai":
+    if active_provider() == "openai":
         from app.client_openai import create_embeddings as embed
-    elif EMBEDDING_PROVIDER == "ollama":
+    elif active_provider() == "ollama":
         from app.client_ollama import create_embeddings as embed
     else:
         raise ValueError(f"Unsupported embedding provider: {EMBEDDING_PROVIDER}")

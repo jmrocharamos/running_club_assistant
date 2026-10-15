@@ -6,6 +6,7 @@ from dotenv import dotenv_values
 
 # Tests must never export traces to a real Langfuse project.
 os.environ["LANGFUSE_TRACING_ENABLED"] = "false"
+os.environ["DEMO_ENABLED"] = "false"
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 _env_values = dotenv_values(BASE_DIR / ".env")

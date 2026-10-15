@@ -166,12 +166,18 @@ def create_embeddings(texts: list[str]) -> list[list[float]]:
 def _parse_response(**kwargs):
     """Parse a structured model response and trace usage without exporting payloads."""
     metadata = kwargs.get("metadata", {})
+    from app.core.request_context import demo_deadline
+    if demo_deadline.get() is not None:
+        limits = {"chatbot": 1024, "coach_memory_summary": 4096, "running_plan": 16000}
+        kwargs["max_output_tokens"] = limits.get(metadata.get("feature"), 2048)
+        if kwargs.get("model") == "gpt-5-mini":
+            kwargs.setdefault("reasoning", {"effort": "minimal"})
     with trace_step(
         metadata.get("feature", "openai_response"), kind="generation",
         model=kwargs["model"], version=metadata.get("prompt_version"),
         metadata={"environment": ENVIRONMENT},
     ) as observation:
-        response = client.responses.parse(**kwargs)
+        response = _request_client().responses.parse(**kwargs)
         usage = getattr(response, "usage", None)
         if usage is not None:
             cached = getattr(getattr(usage, "input_tokens_details", None), "cached_tokens", 0) or 0
@@ -192,8 +198,14 @@ def _embed(**kwargs):
     """Request embeddings while tracing only the model, text count, and token usage."""
     with trace_step("create_embeddings", kind="embedding", model=kwargs["model"],
                     metadata={"text_count": len(kwargs["input"])}) as observation:
-        response = client.embeddings.create(**kwargs)
+        response = _request_client().embeddings.create(**kwargs)
         usage = getattr(response, "usage", None)
         if usage is not None:
             safe_update(observation, usage_details={"input": usage.prompt_tokens})
         return response
+
+
+def _request_client():
+    from app.core.request_context import remaining_seconds
+    remaining = remaining_seconds()
+    return client if remaining is None else client.with_options(timeout=remaining, max_retries=0)
