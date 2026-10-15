@@ -7,6 +7,7 @@ import {
   useContext,
   useMemo,
   useState,
+  useRef,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ import { toast } from "sonner";
 import { chatApi } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { ApiError } from "@/types/api";
-import type { ChatHistoryResponse, ChatMemory, ChatMessage } from "@/types";
+import type { ChatHistoryResponse, ChatMemory, ChatMessage, CoachMemorySummary } from "@/types";
 
 interface CoachChatContextValue {
   messages: ChatMessage[];
@@ -34,6 +35,8 @@ interface CoachChatContextValue {
   isEndingChat: boolean;
   endedChatSummary: ChatMemory | null;
   dismissEndedChatSummary: () => void;
+  history: ChatHistoryResponse | undefined;
+  applySavedMemory: (summary: CoachMemorySummary) => void;
 }
 
 const CoachChatContext = createContext<CoachChatContextValue | null>(null);
@@ -55,6 +58,7 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [endedChatSummary, setEndedChatSummary] = useState<ChatMemory | null>(null);
+  const actionInFlight = useRef(false);
 
   const {
     data: history,
@@ -94,9 +98,18 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
     mutationFn: (message: string) => chatApi.sendMessage(message),
   });
 
+  const applySavedMemory = useCallback((summary: CoachMemorySummary) => {
+    const { current_conversation, ...memory } = summary.chat;
+    queryClient.setQueryData<ChatHistoryResponse>(queryKeys.chatHistory, {
+      ...memory, messages: current_conversation,
+    });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chatHistory });
+  }, [queryClient]);
+
   const dispatchSend = useCallback(
     (message: string) => {
-      if (isHistoryUnavailable) return;
+      if (isHistoryUnavailable || actionInFlight.current) return;
+      actionInFlight.current = true;
       const optimisticMessage: ChatMessage = { role: "user", content: message };
 
       queryClient.setQueryData<ChatHistoryResponse>(queryKeys.chatHistory, (current) => ({
@@ -105,9 +118,12 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
       }));
 
       sendMutation.mutate(message, {
+        onSettled: () => { actionInFlight.current = false; },
         onSuccess: (response) => {
           queryClient.setQueryData<ChatHistoryResponse>(queryKeys.chatHistory, (current) => ({
             ...(current ?? emptyHistory()),
+            active_session_id: response.active_session_id,
+            revision: response.revision,
             messages: [
               ...(current?.messages ?? []),
               { role: "assistant", content: response.reply },
@@ -138,7 +154,7 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
 
   const retryMessage = useCallback(
     (message: string) => {
-      if (isHistoryUnavailable) return;
+      if (isHistoryUnavailable || actionInFlight.current) return;
       queryClient.setQueryData<ChatHistoryResponse>(queryKeys.chatHistory, (current) => {
         if (!current) return current;
 
@@ -159,11 +175,11 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
   );
 
   const endChatMutation = useMutation({
-    mutationFn: () => chatApi.endSession(),
+    onSettled: () => { actionInFlight.current = false; },
+    mutationFn: () => chatApi.endSession(history?.active_session_id),
     onSuccess: (response) => {
-      queryClient.setQueryData<ChatHistoryResponse>(queryKeys.chatHistory, emptyHistory());
-      queryClient.invalidateQueries({ queryKey: queryKeys.chatHistory });
-      setEndedChatSummary(response.summary.chat);
+      applySavedMemory(response.summary);
+      setEndedChatSummary(response.session ? { ...response.summary.chat, session_history: [response.session] } : null);
     },
     onError: (error) => {
       toast.error(
@@ -175,9 +191,10 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
   });
 
   const endChat = useCallback(() => {
-    if (endChatMutation.isPending || isHistoryUnavailable) return;
+    if (actionInFlight.current || endChatMutation.isPending || sendMutation.isPending || isHistoryUnavailable) return;
+    actionInFlight.current = true;
     endChatMutation.mutate();
-  }, [endChatMutation, isHistoryUnavailable]);
+  }, [endChatMutation, sendMutation.isPending, isHistoryUnavailable]);
 
   const value = useMemo<CoachChatContextValue>(
     () => ({
@@ -198,6 +215,8 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
       isEndingChat: endChatMutation.isPending,
       endedChatSummary,
       dismissEndedChatSummary: () => setEndedChatSummary(null),
+      history,
+      applySavedMemory,
     }),
     [
       messages,
@@ -216,6 +235,8 @@ export function CoachChatProvider({ children }: { children: ReactNode }) {
       endChat,
       endChatMutation.isPending,
       endedChatSummary,
+      history,
+      applySavedMemory,
     ],
   );
 

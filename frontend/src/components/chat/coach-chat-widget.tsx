@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, X } from "lucide-react";
+import { History, MessageCircle, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { BravesMark } from "@/components/brand/logo";
@@ -21,6 +21,7 @@ import { ChatComposer } from "./chat-composer";
 import { ChatMessage } from "./chat-message";
 import { useCoachChat } from "./coach-chat-provider";
 import { EndChatSummaryDialog } from "./end-chat-summary-dialog";
+import { ChatMemoryDialog } from "./chat-memory-dialog";
 
 const WELCOME_MESSAGE = {
   role: "assistant" as const,
@@ -63,11 +64,13 @@ export function CoachChatWidget() {
     isEndingChat,
     endedChatSummary,
     dismissEndedChatSummary,
+    history,
   } = useCoachChat();
 
   const isHistoryUnavailable = isHistoryLoading || isHistoryError || isHistoryFetching;
 
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
+  const [isManagingMemory, setIsManagingMemory] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
@@ -134,6 +137,7 @@ export function CoachChatWidget() {
               </span>
             </div>
             <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="History & memory" title="History & memory" onClick={() => setIsManagingMemory(true)} disabled={isSending || isEndingChat || isHistoryUnavailable}><History className="size-4" /></Button>
               <Button
                 type="button"
                 variant="outline"
@@ -196,8 +200,9 @@ export function CoachChatWidget() {
           <DialogHeader>
             <DialogTitle>End this chat?</DialogTitle>
             <DialogDescription>
-              Your assistant will record and summarize this conversation to
-              remember for next time. This can&apos;t be undone.
+              Save a recap, agreed next steps, and memory changes. The full
+              transcript will be cleared after saving. Your latest 10 summaries
+              remain available in History &amp; memory.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -220,6 +225,7 @@ export function CoachChatWidget() {
           if (!open) dismissEndedChatSummary();
         }}
       />
+      {isManagingMemory && history && <ChatMemoryDialog history={history} open={isManagingMemory} onOpenChange={setIsManagingMemory} />}
     </>
   );
 }
