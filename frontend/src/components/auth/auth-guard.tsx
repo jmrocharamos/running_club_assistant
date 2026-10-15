@@ -12,7 +12,8 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace("/login");
+      const wasDemo = document.cookie.split(";").some(part => part.trim().startsWith("demo_expires_at="));
+      router.replace(wasDemo ? "/demo/expired" : "/login");
     }
   }, [isLoading, isAuthenticated, router]);
 

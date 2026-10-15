@@ -130,6 +130,7 @@ export default function LoginPage() {
       >
         <LoginForm />
       </Suspense>
+      <Link href="/demo" className="mt-4 block text-center text-sm font-medium text-primary hover:underline">Try a 15-minute demo without an account</Link>
     </AuthShell>
   );
 }

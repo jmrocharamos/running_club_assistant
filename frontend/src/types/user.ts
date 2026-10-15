@@ -1,4 +1,6 @@
 export interface User {
+  is_demo?: boolean;
+  demo_expires_at?: string | null;
   id: string;
   username: string;
   full_name: string;
