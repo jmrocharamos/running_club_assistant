@@ -1,7 +1,7 @@
 from app.services.telemetry import traced
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.models.coach_memory import CoachMemory
@@ -12,8 +12,15 @@ from app.schemas.running_structured_outputs import CoachMemorySummary
 def get_or_create_coach_memory(
     db: Session,
     user_id: UUID,
+    *,
+    lock: bool = False,
 ) -> CoachMemory:
     """Return existing coach memory or stage a default row; the caller commits."""
+    if lock:
+        # Serialize updates even when the user's memory row does not exist yet.
+        # The transaction releases the lock on commit or rollback.
+        db.execute(text("SELECT pg_advisory_xact_lock(:key)"),
+                   {"key": user_id.int % (2 ** 63)})
     coach_memory = db.scalars(
         select(CoachMemory).where(
             CoachMemory.user_id == user_id,

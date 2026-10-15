@@ -49,7 +49,11 @@ the conversation that just finished. The transcript contains both the runner's o
 and the coach's (assistant's) replies.
 
 Rules:
-- Output only: current_goal, preferences, topics_of_interest, progress.
+- Output current_goal, preferences, topics_of_interest, progress, recap, next_steps, open_questions, memory_evidence.
+- memory_evidence: for each field changed by THIS session, include field, a verbatim runner_quote supporting the change, and operation. Use add for additional list entries; replace or clear only for an explicit correction, replacement, or request to forget. Unchanged fields need no evidence. Without a supporting runner quote, memory will remain unchanged. Preserve old list entries unless explicitly contradicted.
+- recap: a concise readable summary of this session only. Distinguish what the runner reported from advice the coach suggested. Do not repeat older sessions.
+- next_steps: only actions the runner explicitly agreed to take. Each action needs text and runner_quote: a verbatim quote from a runner message expressing that commitment. A question, hypothetical, or coach suggestion is not a commitment. Use [] if no actions were accepted.
+- open_questions: questions left unresolved at the end of this session; use [] if none.
 - Use only information explicitly stated by the runner. Coach messages, suggestions, and reminders are not runner facts.
 - current_goal: the runner's newest explicit active running goal. Keep the previous goal if no clear change was stated.
 - preferences: stable choices explicitly stated or confirmed by the runner.
@@ -61,7 +65,7 @@ Rules:
 """
 
 
-def get_memory_summary_prompt(version: str = "simple") -> str:
+def get_memory_summary_prompt(version: str = "sessions-v2") -> str:
     prompts = {
         "simple": SIMPLE_MEMORY_SUMMARY_PROMPT,
     }

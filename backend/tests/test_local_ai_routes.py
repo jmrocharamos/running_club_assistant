@@ -15,7 +15,7 @@ def test_local_chat_and_summary_persist_through_routes(client, monkeypatch):
 
     def post(url, **kwargs):
         schema = kwargs["json"]["format"]
-        content = '{"reply":"Hello runner"}' if schema["title"] == "ChatReplyOutput" else '{"current_goal":"Finish a 5K", "preferences":[], "topics_of_interest":[], "progress":null}'
+        content = '{"reply":"Hello runner"}' if schema["title"] == "ChatReplyOutput" else '{"current_goal":"Finish a 5K", "preferences":[], "topics_of_interest":[], "progress":null, "memory_evidence":[{"field":"current_goal","runner_quote":"I want to finish a 5K","operation":"replace"}]}'
         return httpx.Response(200, request=httpx.Request("POST", url), json={
             "done": True, "done_reason": "stop", "message": {"content": content},
         })

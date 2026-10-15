@@ -79,17 +79,61 @@ class ChatMessage(BaseModel):
     content: str
 
 
-class ChatSummaryOutput(BaseModel):
+class RunnerMemory(BaseModel):
     current_goal: str | None = None
     preferences: list[str] = Field(default_factory=list)
     topics_of_interest: list[str] = Field(default_factory=list)
     progress: str | None = None
 
 
-class ChatMemory(ChatSummaryOutput):
+class AgreedActionOutput(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    runner_quote: str = Field(min_length=1, max_length=1000)
+
+
+class MemoryEvidence(BaseModel):
+    field: Literal["current_goal", "preferences", "topics_of_interest", "progress"]
+    runner_quote: str = Field(min_length=1, max_length=1000)
+    operation: Literal["add", "replace", "clear"]
+
+
+class ChatSummaryOutput(RunnerMemory):
+    recap: str = Field(default="", max_length=3000)
+    next_steps: list[AgreedActionOutput] = Field(default_factory=list, max_length=10)
+    open_questions: list[str] = Field(default_factory=list, max_length=10)
+    memory_evidence: list[MemoryEvidence] = Field(default_factory=list, max_length=30)
+
+
+class SavedNextStep(AgreedActionOutput):
+    id: str
+    completed: bool = False
+
+
+class MemoryChange(BaseModel):
+    field: str
+    before: str | list[str] | None
+    after: str | list[str] | None
+    runner_quote: str | None = None
+
+
+class CompletedChatSession(BaseModel):
+    id: str
+    started_at: str | None = None
+    ended_at: str
+    recap: str
+    next_steps: list[SavedNextStep] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    memory_changes: list[MemoryChange] = Field(default_factory=list)
+
+
+class ChatMemory(RunnerMemory):
     current_conversation: list[ChatMessage] = Field(
         default_factory=list
     )
+    active_session_id: str | None = None
+    started_at: str | None = None
+    session_history: list[CompletedChatSession] = Field(default_factory=list)
+    revision: int = 0
 
 
 class CoachMemorySummary(BaseModel):
